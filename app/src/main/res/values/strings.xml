@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Pik</string>
+
+    <!-- Tabs -->
+    <string name="tab_home">Home</string>
+    <string name="tab_activity">Activity</string>
+    <string name="tab_plan">Plan</string>
+    <string name="tab_debts">Debts</string>
+    <string name="add_transaction">Add transaction</string>
+
+    <!-- Common -->
+    <string name="action_cancel">Cancel</string>
+    <string name="action_close">Close</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_ok">OK</string>
+    <string name="date_today">Today</string>
+    <string name="date_yesterday">Yesterday</string>
+    <string name="account_type_cash">Cash</string>
+    <string name="account_type_bank">Bank</string>
+    <string name="account_default_bank">Bank</string>
+    <string name="account_default_cash">Cash</string>
+    <string name="account_default_new">New account</string>
+    <string name="transaction_transfer">Transfer</string>
+    <string name="transaction_adjustment">Balance adjustment</string>
+    <string name="transaction_uncategorized">Uncategorised</string>
+    <string name="transfer_route">%1$s → %2$s</string>
+
+    <!-- First run -->
+    <string name="firstrun_welcome_message">Pik helps you track spending and pay off debt. Everything stays on your phone.</string>
+    <string name="firstrun_get_started">Get started</string>
+    <string name="firstrun_accounts_title">Your accounts</string>
+    <string name="firstrun_accounts_message">Add the places where your money lives and how much is in each one today.</string>
+    <string name="firstrun_account_name">Account name</string>
+    <string name="firstrun_starting_balance">Starting balance</string>
+    <string name="firstrun_add_account">Add another account</string>
+    <string name="firstrun_remove_account">Remove account</string>
+    <string name="firstrun_finish">Finish</string>
+
+    <!-- Add / edit transaction -->
+    <string name="add_title">Add</string>
+    <string name="add_title_edit">Edit</string>
+    <string name="type_expense">Expense</string>
+    <string name="type_income">Income</string>
+    <string name="type_transfer">Transfer</string>
+    <string name="add_category">Category</string>
+    <string name="add_account">Account</string>
+    <string name="add_from">From</string>
+    <string name="add_to">To</string>
+    <string name="add_date">Date</string>
+    <string name="add_note">Note</string>
+    <string name="add_save">Save</string>
+    <string name="add_save_and_add_another">Save and add another</string>
+    <string name="add_saved">Saved</string>
+    <string name="keypad_backspace">Delete last digit</string>
+    <string name="delete_title">Delete this transaction?</string>
+    <string name="delete_message">This cannot be undone.</string>
+
+    <!-- Activity -->
+    <string name="activity_title">Activity</string>
+    <string name="activity_empty">No transactions in this month yet.</string>
+    <string name="previous_month">Previous month</string>
+    <string name="next_month">Next month</string>
+
+    <!-- Home -->
+    <string name="home_you_have">You have</string>
+    <string name="home_cash_and_bank">Cash and bank accounts</string>
+    <string name="home_you_owe">You owe</string>
+    <string name="home_you_owe_hint">Add debts in a later update</string>
+    <string name="home_money_in">Money in, %1$s</string>
+    <string name="home_money_out">Money out, %1$s</string>
+    <string name="home_accounts">Accounts</string>
+    <string name="home_recent">Recent</string>
+    <string name="home_see_all">See all</string>
+    <string name="home_empty_title">No transactions yet</string>
+    <string name="home_empty_message">Add your first expense or income to see it here.</string>
+    <string name="home_empty_button">Add your first transaction</string>
+
+    <!-- Placeholders -->
+    <string name="plan_title">Plan</string>
+    <string name="plan_coming_soon">Budgets and recurring payments are coming in the next updates.</string>
+    <string name="debts_title">Debts</string>
+    <string name="debts_coming_soon">Tracking and paying off debts is coming in the next updates.</string>
+</resources>
