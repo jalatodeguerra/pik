@@ -175,14 +175,15 @@ fun AddTransactionScreen(
                     text = stringResource(R.string.add_save),
                     onClick = { viewModel.save(addAnother = false) },
                     enabled = state.canSave,
-                    modifier = Modifier.weight(1f).height(52.dp),
+                    // Narrower than "Save and add another" so its label fits on one line.
+                    modifier = Modifier.weight(if (state.isEditing) 1f else 2f).height(52.dp),
                 )
                 if (!state.isEditing) {
                     PikSecondaryButton(
                         text = stringResource(R.string.add_save_and_add_another),
                         onClick = { viewModel.save(addAnother = true) },
                         enabled = state.canSave,
-                        modifier = Modifier.weight(1f).height(52.dp),
+                        modifier = Modifier.weight(3f).height(52.dp),
                     )
                 }
             }

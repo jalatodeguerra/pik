@@ -1,5 +1,6 @@
 package com.pik.app.ui.components
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -130,8 +131,14 @@ fun PikSecondaryButton(
         enabled = enabled,
         shape = RoundedCornerShape(16.dp),
         colors = pikSecondaryButtonColors(),
+        contentPadding = PaddingValues(horizontal = 12.dp),
     ) {
-        Text(text = text, style = MaterialTheme.typography.titleMedium)
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
