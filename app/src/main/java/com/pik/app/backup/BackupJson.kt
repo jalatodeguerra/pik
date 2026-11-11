@@ -31,7 +31,7 @@ object BackupJson {
     /** Parses and validates. Throws [BackupFormatException] when the text is not a valid Pik backup. */
     fun parse(text: String): BackupFile {
         val root = try {
-            JSONObject(text.trim().removePrefix("﻿"))
+            JSONObject(text.trim().removePrefix("\uFEFF"))
         } catch (e: Exception) {
             throw BackupFormatException(BackupError.NOT_A_BACKUP)
         }
