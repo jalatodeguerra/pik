@@ -16,6 +16,9 @@ jobs:
           java-version: "17"
 
       - uses: android-actions/setup-android@v3
+        with:
+          # The default list includes the retired 'tools' package, which now fails.
+          packages: platform-tools
 
       - uses: gradle/actions/setup-gradle@v4
 
