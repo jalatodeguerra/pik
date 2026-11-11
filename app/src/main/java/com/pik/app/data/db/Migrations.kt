@@ -60,3 +60,17 @@ val MIGRATION_2_3: Migration = object : Migration(2, 3) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_debt_entries_debtId` ON `debt_entries` (`debtId`)")
     }
 }
+
+/**
+ * Version 3 -> 4: debts get the TAEG, the loan type and the instalment counters. Only ADD COLUMN, so
+ * existing debts keep all their data (type becomes 'OTHER', the rest NULL). The SQL must match what Room
+ * generates for [DebtEntity] (see app/schemas/.../4.json): the type default is 'OTHER' (with quotes).
+ */
+val MIGRATION_3_4: Migration = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `debts` ADD COLUMN `taegBasisPoints` INTEGER")
+        db.execSQL("ALTER TABLE `debts` ADD COLUMN `type` TEXT NOT NULL DEFAULT 'OTHER'")
+        db.execSQL("ALTER TABLE `debts` ADD COLUMN `totalInstallments` INTEGER")
+        db.execSQL("ALTER TABLE `debts` ADD COLUMN `installmentsPaidBefore` INTEGER")
+    }
+}

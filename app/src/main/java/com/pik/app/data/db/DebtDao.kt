@@ -78,6 +78,31 @@ interface DebtDao {
     )
     fun observePaymentSums(): Flow<List<DebtSum>>
 
+    /**
+     * Per debt: how many payments count as a rata (EXPENSE with debtId, amount >= 90 % of the debt's
+     * minPaymentCents). sumCents holds the count. See domain/Installments.kt.
+     */
+    @Query(
+        """
+        SELECT t.debtId AS debtId, COUNT(*) AS sumCents
+        FROM transactions t INNER JOIN debts d ON d.id = t.debtId
+        WHERE t.type = 'EXPENSE' AND d.minPaymentCents > 0 AND t.amountCents * 10 >= d.minPaymentCents * 9
+        GROUP BY t.debtId
+        """,
+    )
+    fun observeRataCounts(): Flow<List<DebtSum>>
+
+    /** Per debt: the epoch day of the latest payment that counts as a rata (sumCents holds the day). */
+    @Query(
+        """
+        SELECT t.debtId AS debtId, MAX(t.date) AS sumCents
+        FROM transactions t INNER JOIN debts d ON d.id = t.debtId
+        WHERE t.type = 'EXPENSE' AND d.minPaymentCents > 0 AND t.amountCents * 10 >= d.minPaymentCents * 9
+        GROUP BY t.debtId
+        """,
+    )
+    fun observeLastRataDays(): Flow<List<DebtSum>>
+
     @Query("SELECT COALESCE(SUM(amountCents), 0) FROM debt_entries WHERE debtId = :debtId")
     suspend fun entriesSum(debtId: Long): Long
 

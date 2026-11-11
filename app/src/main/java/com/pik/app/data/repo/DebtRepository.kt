@@ -14,16 +14,47 @@ import com.pik.app.domain.DebtFigures
 import com.pik.app.domain.DebtHistory
 import com.pik.app.domain.DebtHistoryItem
 import com.pik.app.domain.DebtProgress
+import com.pik.app.domain.DebtType
+import com.pik.app.domain.InstallmentStatus
+import com.pik.app.domain.Installments
 import com.pik.app.domain.TransactionType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
+import java.time.YearMonth
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** Everything the user can edit on a debt (TAN is stored in aprBasisPoints). */
+data class DebtInput(
+    val name: String,
+    val startingBalanceCents: Long,
+    val originalAmountCents: Long?,
+    val tanBasisPoints: Int,
+    val taegBasisPoints: Int?,
+    val type: DebtType,
+    val minPaymentCents: Long,
+    val dueDay: Int,
+    val totalInstallments: Int?,
+    val installmentsPaidBefore: Int?,
+)
+
 /** A debt with its calculated figures. */
-data class DebtItem(val debt: DebtEntity, val figures: DebtFigures) {
+data class DebtItem(
+    val debt: DebtEntity,
+    val figures: DebtFigures,
+    /** Payments logged in Pik that count as a rata (>= 90 % of the instalment). */
+    val rataCount: Int = 0,
+    /** Epoch day of the latest payment that counts as a rata. */
+    val lastRataEpochDay: Long? = null,
+) {
+    /** Instalment progress, or null when the debt has no total number of instalments. */
+    fun installments(now: YearMonth = YearMonth.now()): InstallmentStatus? {
+        val paidThisMonth = lastRataEpochDay?.let { YearMonth.from(LocalDate.ofEpochDay(it)) == now } == true
+        return Installments.status(debt.totalInstallments, debt.installmentsPaidBefore, rataCount, paidThisMonth, now)
+    }
+
     val remainingCents: Long get() = DebtCalculator.remaining(figures)
     val rawRemainingCents: Long get() = DebtCalculator.rawRemaining(figures)
     val progress: DebtProgress get() = DebtCalculator.progress(figures)
@@ -40,9 +71,13 @@ class DebtRepository @Inject constructor(
         dao.observeAll(),
         dao.observeEntrySums(),
         dao.observePaymentSums(),
-    ) { debts, entrySums, paymentSums ->
+        dao.observeRataCounts(),
+        dao.observeLastRataDays(),
+    ) { debts, entrySums, paymentSums, rataCounts, rataDays ->
         val entries = entrySums.associate { it.debtId to it.sumCents }
         val payments = paymentSums.associate { it.debtId to it.sumCents }
+        val counts = rataCounts.associate { it.debtId to it.sumCents.toInt() }
+        val lastDays = rataDays.associate { it.debtId to it.sumCents }
         debts.map { debt ->
             DebtItem(
                 debt = debt,
@@ -52,6 +87,8 @@ class DebtRepository @Inject constructor(
                     entriesSumCents = entries[debt.id] ?: 0L,
                     paymentsSumCents = payments[debt.id] ?: 0L,
                 ),
+                rataCount = counts[debt.id] ?: 0,
+                lastRataEpochDay = lastDays[debt.id],
             )
         }
     }
@@ -75,44 +112,37 @@ class DebtRepository @Inject constructor(
 
     suspend fun get(id: Long): DebtEntity? = dao.getById(id)
 
-    suspend fun add(
-        name: String,
-        startingBalanceCents: Long,
-        originalAmountCents: Long?,
-        aprBasisPoints: Int,
-        minPaymentCents: Long,
-        dueDay: Int,
-    ): Long = dao.insert(
+    suspend fun add(input: DebtInput): Long = dao.insert(
         DebtEntity(
-            name = name.trim(),
-            startingBalanceCents = startingBalanceCents,
-            originalAmountCents = originalAmountCents,
-            aprBasisPoints = aprBasisPoints,
-            minPaymentCents = minPaymentCents,
-            dueDay = dueDay.coerceIn(1, 28),
+            name = input.name.trim(),
+            startingBalanceCents = input.startingBalanceCents,
+            originalAmountCents = input.originalAmountCents,
+            aprBasisPoints = input.tanBasisPoints,
+            minPaymentCents = input.minPaymentCents,
+            dueDay = input.dueDay.coerceIn(1, 28),
             sortOrder = dao.maxSortOrder() + 1,
             createdAt = System.currentTimeMillis(),
+            taegBasisPoints = input.taegBasisPoints,
+            type = input.type,
+            totalInstallments = input.totalInstallments,
+            installmentsPaidBefore = input.installmentsPaidBefore,
         ),
     )
 
-    suspend fun update(
-        id: Long,
-        name: String,
-        startingBalanceCents: Long,
-        originalAmountCents: Long?,
-        aprBasisPoints: Int,
-        minPaymentCents: Long,
-        dueDay: Int,
-    ) {
+    suspend fun update(id: Long, input: DebtInput) {
         val existing = dao.getById(id) ?: return
         dao.update(
             existing.copy(
-                name = name.trim(),
-                startingBalanceCents = startingBalanceCents,
-                originalAmountCents = originalAmountCents,
-                aprBasisPoints = aprBasisPoints,
-                minPaymentCents = minPaymentCents,
-                dueDay = dueDay.coerceIn(1, 28),
+                name = input.name.trim(),
+                startingBalanceCents = input.startingBalanceCents,
+                originalAmountCents = input.originalAmountCents,
+                aprBasisPoints = input.tanBasisPoints,
+                taegBasisPoints = input.taegBasisPoints,
+                type = input.type,
+                minPaymentCents = input.minPaymentCents,
+                dueDay = input.dueDay.coerceIn(1, 28),
+                totalInstallments = input.totalInstallments,
+                installmentsPaidBefore = input.installmentsPaidBefore,
             ),
         )
     }

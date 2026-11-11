@@ -8,7 +8,7 @@ import androidx.room.TypeConverters
     entities = [AccountEntity::class, CategoryEntity::class, TransactionEntity::class, BudgetEntity::class,
         DebtEntity::class, DebtEntryEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

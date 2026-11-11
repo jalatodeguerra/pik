@@ -2,6 +2,7 @@ package com.pik.app.domain
 
 import java.time.LocalDate
 import java.time.YearMonth
+import java.util.Locale
 
 /**
  * A "payday month": [start]..[endInclusive], both calendar days. With startDay 1 it is a
@@ -34,12 +35,12 @@ data class Period(val start: LocalDate, val startDay: Int) {
         else -> (endInclusive.toEpochDay() - today.toEpochDay() + 1).toInt()
     }
 
-    /** "November" when startDay is 1, otherwise "27 Oct - 26 Nov" (with an en dash). */
-    fun label(): String =
+    /** "November" when startDay is 1, otherwise "27 Oct - 26 Nov" (with an en dash); names follow [locale]. */
+    fun label(locale: Locale = Locale.getDefault()): String =
         if (startDay == 1) {
-            DateFormats.monthName(YearMonth.from(start))
+            DateFormats.monthName(YearMonth.from(start), locale)
         } else {
-            "${DateFormats.dayMonth(start)} \u2013 ${DateFormats.dayMonth(endInclusive)}"
+            "${DateFormats.dayMonth(start, locale)} \u2013 ${DateFormats.dayMonth(endInclusive, locale)}"
         }
 
     companion object {

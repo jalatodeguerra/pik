@@ -73,7 +73,10 @@ class DebtsViewModel @Inject constructor(
         val archived = debts.filter { it.debt.archived }
         val open = active.filter { it.remainingCents > 0 }
         val paidOff = active.filter { it.remainingCents == 0L }
-        val sim = open.map { SimDebt(it.debt.id, it.remainingCents, it.debt.aprBasisPoints, it.debt.minPaymentCents) }
+        val sim = open.map { SimDebt(
+                it.debt.id, it.remainingCents, it.debt.aprBasisPoints, it.debt.minPaymentCents,
+                it.debt.taegBasisPoints,
+            ) }
         val startMonth = YearMonth.now()
 
         val targetOrder = PayoffSimulator.targetOrder(sim, order)

@@ -2,13 +2,20 @@ package com.pik.app.domain
 
 import java.time.YearMonth
 
-/** A debt as the payoff simulation sees it. */
+/**
+ * A debt as the payoff simulation sees it. [aprBasisPoints] is the TAN: the rate used for interest.
+ * [taegBasisPoints] (optional) is only used to rank debts for HIGHEST_INTEREST.
+ */
 data class SimDebt(
     val id: Long,
     val balanceCents: Long,
     val aprBasisPoints: Int,
     val minPaymentCents: Long,
-)
+    val taegBasisPoints: Int? = null,
+) {
+    /** The rate that decides the payoff order: the TAEG when set, otherwise the TAN. */
+    val rankBasisPoints: Int get() = taegBasisPoints ?: aprBasisPoints
+}
 
 data class PayoffResult(
     /** Month of the last payment. null when the debts are already paid ([isDebtFreeNow]) or [neverPaysOff]. */
@@ -52,13 +59,13 @@ data class WhatIfResult(
  * Month by month payoff simulation (pure, no Android).
  *
  * The first simulated month is [startMonth] (normally the current month). Every month:
- *  1. interest is added to every open debt: balance x apr / 12, rounded half up to the cent;
+ *  1. interest is added to every open debt: balance x TAN / 12, rounded half up to the cent;
  *  2. every minimum payment is paid, capped at the balance;
  *  3. the pool = extra + minimums of debts that are already cleared (snowball roll-over) + whatever
  *     part of a minimum was not needed because the balance was smaller. The pool goes to the
  *     target debt, then cascades to the next target in the same month until it is used up.
  *
- * The target order is fixed from the starting balances: HIGHEST_INTEREST = highest APR first,
+ * The target order is fixed from the starting balances: HIGHEST_INTEREST = highest TAEG first (TAN when a debt has no TAEG),
  * SMALLEST_BALANCE = smallest balance first; ties are broken by id. The total paid per month is
  * therefore constant (sum of all minimums + extra) until the last debt is cleared.
  *
@@ -81,7 +88,7 @@ object PayoffSimulator {
         val open = debts.filter { it.balanceCents > 0L }
         val sorted = when (order) {
             PayoffOrder.HIGHEST_INTEREST ->
-                open.sortedWith(compareByDescending<SimDebt> { it.aprBasisPoints }.thenBy { it.id })
+                open.sortedWith(compareByDescending<SimDebt> { it.rankBasisPoints }.thenBy { it.id })
             PayoffOrder.SMALLEST_BALANCE ->
                 open.sortedWith(compareBy<SimDebt> { it.balanceCents }.thenBy { it.id })
         }

@@ -105,15 +105,19 @@ private fun TransactionEntity.toBackup() = BackupTransaction(
 private fun BudgetEntity.toBackup() = BackupBudget(id, categoryId, limitCents, startPeriod, createdAt)
 
 private fun DebtEntity.toBackup() = BackupDebt(
-    id, name, startingBalanceCents, originalAmountCents, aprBasisPoints, minPaymentCents, dueDay, archived,
-    sortOrder, createdAt,
+    id = id, name = name, startingBalanceCents = startingBalanceCents, originalAmountCents = originalAmountCents,
+    aprBasisPoints = aprBasisPoints, minPaymentCents = minPaymentCents, dueDay = dueDay, archived = archived,
+    sortOrder = sortOrder, createdAt = createdAt, taegBasisPoints = taegBasisPoints, type = type,
+    totalInstallments = totalInstallments, installmentsPaidBefore = installmentsPaidBefore,
 )
 
 private fun DebtEntryEntity.toBackup() = BackupDebtEntry(id, debtId, type, amountCents, date, note, createdAt)
 
 private fun BackupDebt.toEntity() = DebtEntity(
-    id, name, startingBalanceCents, originalAmountCents, aprBasisPoints, minPaymentCents, dueDay, archived,
-    sortOrder, createdAt,
+    id = id, name = name, startingBalanceCents = startingBalanceCents, originalAmountCents = originalAmountCents,
+    aprBasisPoints = aprBasisPoints, minPaymentCents = minPaymentCents, dueDay = dueDay, archived = archived,
+    sortOrder = sortOrder, createdAt = createdAt, taegBasisPoints = taegBasisPoints, type = type,
+    totalInstallments = totalInstallments, installmentsPaidBefore = installmentsPaidBefore,
 )
 
 private fun BackupDebtEntry.toEntity() = DebtEntryEntity(id, debtId, type, amountCents, date, note, createdAt)

@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.pik.app.data.db.MIGRATION_1_2
 import com.pik.app.data.db.MIGRATION_2_3
+import com.pik.app.data.db.MIGRATION_3_4
 import com.pik.app.data.db.PikDatabase
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -36,7 +37,7 @@ class MigrationTest {
             ApplicationProvider.getApplicationContext(),
             PikDatabase::class.java,
             TEST_DB,
-        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
         // Opening validates the schema against the current entities.
         db.openHelper.writableDatabase
         db.close()
@@ -194,6 +195,100 @@ class MigrationTest {
         db.query("SELECT COUNT(*) FROM transactions WHERE debtId = 1").use {
             assertTrue(it.moveToFirst())
             assertEquals(1, it.getInt(0))
+        }
+    }
+
+    @Test
+    fun migrate3To4KeepsDebtsAndAddsTypeAndLoanColumns() {
+        helper.createDatabase(TEST_DB, 3).apply {
+            insertBaseRows(this)
+            insertVersion3Debt(this)
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(TEST_DB, 4, true, MIGRATION_3_4)
+
+        assertBaseRowsSurvived(db)
+        assertOldDebtSurvived(db)
+        assertNewDebtColumnsWork(db)
+        db.close()
+    }
+
+    @Test
+    fun migrate1To4KeepsDataThroughEveryMigration() {
+        helper.createDatabase(TEST_DB, 1).apply {
+            insertBaseRows(this)
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(TEST_DB, 4, true, MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+
+        assertBaseRowsSurvived(db)
+        db.query("SELECT COUNT(*) FROM debts").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(0, it.getInt(0))
+        }
+        assertNewDebtColumnsWork(db)
+        db.close()
+    }
+
+    private fun insertVersion3Debt(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL(
+            "INSERT INTO debts (id, name, startingBalanceCents, originalAmountCents, aprBasisPoints, " +
+                "minPaymentCents, dueDay, archived, sortOrder, createdAt) " +
+                "VALUES (1, 'Old loan', 800000, 1000000, 750, 20000, 10, 0, 0, 5)",
+        )
+        db.execSQL(
+            "INSERT INTO debt_entries (id, debtId, type, amountCents, date, note, createdAt) " +
+                "VALUES (1, 1, 'FEE', 500, 20400, '', 1)",
+        )
+    }
+
+    /** The version 3 debt keeps its values, gets type OTHER and NULL in the new nullable columns. */
+    private fun assertOldDebtSurvived(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.query(
+            "SELECT name, startingBalanceCents, aprBasisPoints, minPaymentCents, taegBasisPoints, type, " +
+                "totalInstallments, installmentsPaidBefore FROM debts WHERE id = 1",
+        ).use {
+            assertTrue(it.moveToFirst())
+            assertEquals("Old loan", it.getString(0))
+            assertEquals(800000L, it.getLong(1))
+            assertEquals(750, it.getInt(2))
+            assertEquals(20000L, it.getLong(3))
+            assertTrue(it.isNull(4))
+            assertEquals("OTHER", it.getString(5))
+            assertTrue(it.isNull(6))
+            assertTrue(it.isNull(7))
+        }
+        db.query("SELECT amountCents FROM debt_entries WHERE debtId = 1").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(500L, it.getLong(0))
+        }
+    }
+
+    private fun assertNewDebtColumnsWork(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL(
+            "INSERT INTO debts (id, name, startingBalanceCents, originalAmountCents, aprBasisPoints, " +
+                "minPaymentCents, dueDay, archived, sortOrder, createdAt, taegBasisPoints, type, " +
+                "totalInstallments, installmentsPaidBefore) " +
+                "VALUES (50, 'Auto', 1500000, NULL, 599, 29000, 15, 0, 9, 6, 712, 'CAR_LOAN', 60, 18)",
+        )
+        db.query("SELECT taegBasisPoints, type, totalInstallments, installmentsPaidBefore FROM debts WHERE id = 50").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(712, it.getInt(0))
+            assertEquals("CAR_LOAN", it.getString(1))
+            assertEquals(60, it.getInt(2))
+            assertEquals(18, it.getInt(3))
+        }
+        // a debt inserted without the new columns (like old code) gets the default type
+        db.execSQL(
+            "INSERT INTO debts (id, name, startingBalanceCents, originalAmountCents, aprBasisPoints, " +
+                "minPaymentCents, dueDay, archived, sortOrder, createdAt) " +
+                "VALUES (51, 'Plain', 100, NULL, 0, 0, 1, 0, 10, 7)",
+        )
+        db.query("SELECT type FROM debts WHERE id = 51").use {
+            assertTrue(it.moveToFirst())
+            assertEquals("OTHER", it.getString(0))
         }
     }
 

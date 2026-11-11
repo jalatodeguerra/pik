@@ -16,3 +16,13 @@ enum class DebtEntryType { INTEREST, FEE, ADJUSTMENT }
 
 /** Which debt gets the extra money first in the payoff plan. */
 enum class PayoffOrder { HIGHEST_INTEREST, SMALLEST_BALANCE }
+
+/**
+ * Kind of loan. Stored in Room by its name (default OTHER). Types with a fixed monthly instalment
+ * (rata) are every type except [FAMILY_FRIENDS] and [OTHER].
+ */
+enum class DebtType {
+    CAR_LOAN, PERSONAL_LOAN, MORTGAGE, CONSUMER_CREDIT, STUDENT_LOAN, FAMILY_FRIENDS, OTHER;
+
+    val hasInstalments: Boolean get() = this != FAMILY_FRIENDS && this != OTHER
+}

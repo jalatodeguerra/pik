@@ -180,4 +180,32 @@ class PayoffSimulatorTest {
         val a = PayoffSimulator.simulate(listOf(debt(1, 1000, 1200, 100)), -500, PayoffOrder.HIGHEST_INTEREST, start)
         assertEquals(11, a.months)
     }
+
+    @Test fun highestInterestRanksByTaegWhenSet() {
+        // TAN says debt 1 is dearer (10 % vs 8 %), but debt 2 has a TAEG of 15 %.
+        val d1 = SimDebt(1, 100_000, 1000, 5_000)
+        val d2 = SimDebt(2, 100_000, 800, 5_000, taegBasisPoints = 1500)
+        assertEquals(listOf(2L, 1L), PayoffSimulator.targetOrder(listOf(d1, d2), PayoffOrder.HIGHEST_INTEREST))
+        // without the TAEG the TAN decides
+        assertEquals(
+            listOf(1L, 2L),
+            PayoffSimulator.targetOrder(listOf(d1, d2.copy(taegBasisPoints = null)), PayoffOrder.HIGHEST_INTEREST),
+        )
+    }
+
+    @Test fun taegIsMixedWithTanForRankingOnly() {
+        val d1 = SimDebt(1, 100_000, 1200, 5_000, taegBasisPoints = 900)
+        val d2 = SimDebt(2, 100_000, 1000, 5_000)
+        // 9 % (TAEG of debt 1) < 10 % (TAN of debt 2): debt 2 goes first
+        assertEquals(listOf(2L, 1L), PayoffSimulator.targetOrder(listOf(d1, d2), PayoffOrder.HIGHEST_INTEREST))
+    }
+
+    @Test fun interestAlwaysUsesTanNotTaeg() {
+        val plain = SimDebt(1, 100_000, 1200, 10_000)
+        val withTaeg = plain.copy(taegBasisPoints = 3000)
+        assertEquals(
+            PayoffSimulator.simulate(listOf(plain), 0, PayoffOrder.HIGHEST_INTEREST, start),
+            PayoffSimulator.simulate(listOf(withTaeg), 0, PayoffOrder.HIGHEST_INTEREST, start),
+        )
+    }
 }

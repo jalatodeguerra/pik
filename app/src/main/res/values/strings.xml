@@ -90,6 +90,7 @@
     <string name="settings_manage_categories">Manage categories</string>
     <string name="settings_backup">Backup</string>
     <string name="settings_about">About</string>
+    <string name="settings_language">Language</string>
     <string name="about_version">Version</string>
     <string name="about_offline">Pik works fully offline. Your data never leaves your phone unless you save a backup file.</string>
 
@@ -233,7 +234,7 @@
     <string name="debts_debt_free_now">You are debt-free</string>
     <string name="debts_interest_to_pay">About %1$s interest still to pay</string>
     <string name="debts_never_pays_off">This plan doesn\'t cover the interest. Pay more each month, or the debt keeps growing.</string>
-    <string name="debts_plan_assumption">Based on the minimum payments plus %1$s extra per month, and the interest rates you entered.</string>
+    <string name="debts_plan_assumption">Based on the minimum payments plus %1$s extra per month, and the TAN you entered for each debt.</string>
     <string name="debts_order_title">Payoff order</string>
     <string name="debts_order_highest_interest">Highest interest</string>
     <string name="debts_order_smallest_balance">Smallest balance</string>
@@ -251,6 +252,13 @@
     <string name="debts_your_debts">Your debts</string>
     <string name="debts_archived">Archived</string>
     <string name="debts_row_details">%1$s · minimum %2$s · due day %3$d</string>
+    <string name="debts_row_details_rata">%1$s · instalment %2$s · due day %3$d</string>
+    <string name="debt_rates_tan">TAN %1$s</string>
+    <string name="debt_rates_tan_taeg">TAN %1$s · TAEG %2$s</string>
+    <string name="debt_installments_left_one">%1$d left</string>
+    <string name="debt_installments_left_other">%1$d left</string>
+    <string name="debt_installments_status">Instalment %1$d of %2$d · %3$s · ends %4$s</string>
+    <string name="debt_installments_done">Instalment %1$d of %2$d · all paid</string>
     <string name="debts_paid_off">Paid off</string>
     <string name="duration_month">%1$d month</string>
     <string name="duration_months">%1$d months</string>
@@ -265,9 +273,26 @@
     <string name="debt_balance_edit_hint">This is where Pik starts counting. To match your bank, use Check balance on the debt page instead.</string>
     <string name="debt_original">Original amount (optional)</string>
     <string name="debt_original_hint">The size of the loan when you took it. Used to show how much is already paid off.</string>
-    <string name="debt_apr">Interest rate per year (APR)</string>
-    <string name="debt_apr_hint">For example 12,5</string>
+    <string name="debt_type">Type of debt</string>
+    <string name="debt_type_car_loan">Car loan</string>
+    <string name="debt_type_personal_loan">Personal loan</string>
+    <string name="debt_type_mortgage">Mortgage</string>
+    <string name="debt_type_consumer_credit">Consumer credit</string>
+    <string name="debt_type_student_loan">Student loan</string>
+    <string name="debt_type_family_friends">Family or friends</string>
+    <string name="debt_type_other">Other</string>
+    <string name="debt_tan">TAN</string>
+    <string name="debt_tan_hint">Rate the bank charges on the balance</string>
+    <string name="debt_taeg">TAEG (optional)</string>
+    <string name="debt_taeg_hint">Total yearly cost, including fees</string>
+    <string name="debt_rate_placeholder">For example 7,5</string>
+    <string name="debt_taeg_lower_warning">The TAEG is usually not lower than the TAN. Check both values.</string>
     <string name="debt_min_payment">Minimum payment per month</string>
+    <string name="debt_instalment">Monthly instalment (rata)</string>
+    <string name="debt_total_installments">Total instalments (optional)</string>
+    <string name="debt_total_installments_hint">For example 60 for a 5-year loan</string>
+    <string name="debt_installments_paid_before">Instalments already paid</string>
+    <string name="debt_installments_paid_before_hint">Paid before you added this loan to Pik. Payments you log here count as an instalment when they are at least 90% of the monthly instalment.</string>
     <string name="debt_due_day">Due day</string>
     <string name="debt_due_day_field">Due day: %1$d</string>
     <string name="debt_due_day_hint">Day of the month when the payment is due (1 to 28).</string>
@@ -280,7 +305,8 @@
     <!-- Debt detail -->
     <string name="debt_detail_you_owe">You owe</string>
     <string name="debt_detail_paid_of">%1$s paid of %2$s</string>
-    <string name="debt_detail_rate_line">%1$s per year · minimum %2$s · due day %3$d</string>
+    <string name="debt_detail_rate_line">%1$s · minimum %2$s · due day %3$d</string>
+    <string name="debt_detail_rate_line_rata">%1$s · instalment %2$s · due day %3$d</string>
     <string name="debt_detail_log_payment">Log payment</string>
     <string name="debt_detail_add_entry">Add interest or fee</string>
     <string name="debt_detail_check_balance">Check balance</string>

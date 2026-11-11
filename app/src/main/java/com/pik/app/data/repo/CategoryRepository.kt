@@ -24,7 +24,7 @@ class CategoryRepository @Inject constructor(
     /** Idempotent: only seeds when there are no categories yet. */
     suspend fun ensureDefaultCategories() {
         if (dao.count() == 0) {
-            dao.insertAll(DefaultCategories.all)
+            dao.insertAll(DefaultCategories.forLocale())
         }
     }
 

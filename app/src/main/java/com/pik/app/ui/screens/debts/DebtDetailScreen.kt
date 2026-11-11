@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -38,7 +39,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pik.app.R
 import com.pik.app.data.repo.DebtItem
-import com.pik.app.domain.Apr
 import com.pik.app.domain.DateFormats
 import com.pik.app.domain.DebtEntryType
 import com.pik.app.domain.DebtHistoryItem
@@ -208,8 +208,8 @@ private fun DebtDetailContent(
                     )
                     Text(
                         text = stringResource(
-                            R.string.debt_detail_rate_line,
-                            Apr.format(debt.aprBasisPoints),
+                            if (debt.type.hasInstalments) R.string.debt_detail_rate_line_rata else R.string.debt_detail_rate_line,
+                            ratesText(debt),
                             Money.format(debt.minPaymentCents),
                             debt.dueDay,
                         ),
@@ -217,6 +217,37 @@ private fun DebtDetailContent(
                         color = PikColors.TextSecondary,
                         modifier = Modifier.padding(top = 4.dp),
                     )
+                    Row(
+                        modifier = Modifier.padding(top = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Icon(
+                            imageVector = debt.type.icon(),
+                            contentDescription = null,
+                            tint = PikColors.TextSecondary,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Text(
+                            text = stringResource(debt.type.labelRes()),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = PikColors.TextSecondary,
+                        )
+                    }
+                    val installments = item.installments()
+                    if (installments != null && debt.type.hasInstalments) {
+                        Text(
+                            text = installmentsText(installments),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = PikColors.TextPrimary,
+                            modifier = Modifier.padding(top = 12.dp),
+                        )
+                        PikProgressBar(
+                            fraction = installments.fraction,
+                            color = PikColors.Lime,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
                 }
             }
         }

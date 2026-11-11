@@ -4,6 +4,7 @@ import com.pik.app.domain.AccountType
 import com.pik.app.domain.Apr
 import com.pik.app.domain.CategoryKind
 import com.pik.app.domain.DebtEntryType
+import com.pik.app.domain.DebtType
 import com.pik.app.domain.PayoffOrder
 import com.pik.app.domain.Period
 import com.pik.app.domain.TransactionType
@@ -15,11 +16,14 @@ import java.time.LocalDate
  * Backup file format: one JSON object with the header fields and one array per table holding
  * every column of every row. Dates are ISO yyyy-MM-dd, money is integer cents.
  * formatVersion 2 added the "budgets" array; formatVersion 3 added the "debts" and "debtEntries"
- * arrays and the optional "settings" object. Version 1 and 2 files can still be read.
+ * arrays and the optional "settings" object. formatVersion 4 added taegBasisPoints, type,
+ * totalInstallments and installmentsPaidBefore to every debt (aprBasisPoints is the TAN). Version 1 to 3
+ * files can still be read: the missing debt fields get their defaults.
  */
 object BackupJson {
-    const val FORMAT_VERSION = 3
+    const val FORMAT_VERSION = 4
     private const val OLDEST_SUPPORTED_VERSION = 1
+    const val MAX_INSTALLMENTS = 1200
     private val PERIOD_KEY = Regex("""\d{4}-(0[1-9]|1[0-2])""")
 
     fun serialize(file: BackupFile): String {
@@ -37,7 +41,7 @@ object BackupJson {
             root.put("budgets", JSONArray().also { arr -> file.budgets.forEach { arr.put(budgetToJson(it)) } })
         }
         if (file.formatVersion >= 3) {
-            root.put("debts", JSONArray().also { arr -> file.debts.forEach { arr.put(debtToJson(it)) } })
+            root.put("debts", JSONArray().also { arr -> file.debts.forEach { arr.put(debtToJson(it, file.formatVersion)) } })
             root.put(
                 "debtEntries",
                 JSONArray().also { arr -> file.debtEntries.forEach { arr.put(debtEntryToJson(it)) } },
@@ -75,7 +79,7 @@ object BackupJson {
                 categories = root.getJSONArray("categories").mapObjects(::categoryFromJson),
                 transactions = root.getJSONArray("transactions").mapObjects(::transactionFromJson),
                 budgets = if (version >= 2) root.getJSONArray("budgets").mapObjects(::budgetFromJson) else emptyList(),
-                debts = if (version >= 3) root.getJSONArray("debts").mapObjects(::debtFromJson) else emptyList(),
+                debts = if (version >= 3) root.getJSONArray("debts").mapObjects { debtFromJson(it, version) } else emptyList(),
                 debtEntries = if (version >= 3) {
                     root.getJSONArray("debtEntries").mapObjects(::debtEntryFromJson)
                 } else {
@@ -109,6 +113,13 @@ object BackupJson {
             throw BackupFormatException(BackupError.UNSUPPORTED_VERSION)
         }
         if (file.formatVersion < 2 && file.budgets.isNotEmpty()) invalid()
+        if (file.formatVersion < 4 && file.debts.any {
+                it.taegBasisPoints != null || it.type != DebtType.OTHER ||
+                    it.totalInstallments != null || it.installmentsPaidBefore != null
+            }
+        ) {
+            invalid()
+        }
         if (file.formatVersion < 3 && (file.debts.isNotEmpty() || file.debtEntries.isNotEmpty() || file.settings != null)) {
             invalid()
         }
@@ -131,6 +142,14 @@ object BackupJson {
             if (debt.aprBasisPoints !in 0..Apr.MAX_BASIS_POINTS) invalid()
             if (debt.minPaymentCents < 0) invalid()
             if (debt.dueDay !in 1..28) invalid()
+            if (debt.taegBasisPoints != null && debt.taegBasisPoints !in 0..Apr.MAX_BASIS_POINTS) invalid()
+            if (debt.totalInstallments != null && debt.totalInstallments !in 1..MAX_INSTALLMENTS) invalid()
+            if (debt.installmentsPaidBefore != null &&
+                (debt.installmentsPaidBefore !in 0..MAX_INSTALLMENTS ||
+                    (debt.totalInstallments != null && debt.installmentsPaidBefore > debt.totalInstallments))
+            ) {
+                invalid()
+            }
         }
         val entryIds = file.debtEntries.map { it.id }
         if (entryIds.any { it <= 0 } || entryIds.toSet().size != entryIds.size) invalid()
@@ -210,7 +229,11 @@ object BackupJson {
         put("createdAt", b.createdAt)
     }
 
-    private fun debtToJson(d: BackupDebt) = JSONObject().apply {
+    private fun JSONObject.putNullableInt(key: String, value: Int?) {
+        put(key, value ?: JSONObject.NULL)
+    }
+
+    private fun debtToJson(d: BackupDebt, formatVersion: Int) = JSONObject().apply {
         put("id", d.id)
         put("name", d.name)
         put("startingBalanceCents", d.startingBalanceCents)
@@ -221,6 +244,12 @@ object BackupJson {
         put("archived", d.archived)
         put("sortOrder", d.sortOrder)
         put("createdAt", d.createdAt)
+        if (formatVersion >= 4) {
+            putNullableInt("taegBasisPoints", d.taegBasisPoints)
+            put("type", d.type.name)
+            putNullableInt("totalInstallments", d.totalInstallments)
+            putNullableInt("installmentsPaidBefore", d.installmentsPaidBefore)
+        }
     }
 
     private fun debtEntryToJson(e: BackupDebtEntry) = JSONObject().apply {
@@ -290,7 +319,9 @@ object BackupJson {
         createdAt = o.getLong("createdAt"),
     )
 
-    private fun debtFromJson(o: JSONObject) = BackupDebt(
+    private fun JSONObject.nullableInt(key: String): Int? = if (!has(key) || isNull(key)) null else getInt(key)
+
+    private fun debtFromJson(o: JSONObject, version: Int) = BackupDebt(
         id = o.getLong("id"),
         name = o.getString("name"),
         startingBalanceCents = o.getLong("startingBalanceCents"),
@@ -301,6 +332,11 @@ object BackupJson {
         archived = o.getBoolean("archived"),
         sortOrder = o.getInt("sortOrder"),
         createdAt = o.getLong("createdAt"),
+        // Version 4 fields: older files simply do not have them (defaults).
+        taegBasisPoints = if (version >= 4) o.nullableInt("taegBasisPoints") else null,
+        type = if (version >= 4 && o.has("type")) DebtType.valueOf(o.getString("type")) else DebtType.OTHER,
+        totalInstallments = if (version >= 4) o.nullableInt("totalInstallments") else null,
+        installmentsPaidBefore = if (version >= 4) o.nullableInt("installmentsPaidBefore") else null,
     )
 
     private fun debtEntryFromJson(o: JSONObject) = BackupDebtEntry(

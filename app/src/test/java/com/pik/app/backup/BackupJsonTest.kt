@@ -3,6 +3,7 @@ package com.pik.app.backup
 import com.pik.app.domain.AccountType
 import com.pik.app.domain.CategoryKind
 import com.pik.app.domain.DebtEntryType
+import com.pik.app.domain.DebtType
 import com.pik.app.domain.PayoffOrder
 import com.pik.app.domain.TransactionType
 import org.json.JSONObject
@@ -16,7 +17,7 @@ import java.time.LocalDate
 class BackupJsonTest {
 
     private fun sample(): BackupFile = BackupFile(
-        formatVersion = 3,
+        formatVersion = 4,
         appVersion = "0.4.0",
         exportedAt = "2026-11-10T09:30:00Z",
         accounts = listOf(
@@ -51,7 +52,10 @@ class BackupJsonTest {
             BackupBudget(3, 3, 0, "2026-11", 22),
         ),
         debts = listOf(
-            BackupDebt(1, "Car \"loan\"", 1_000_000, 1_500_000, 599, 25_000, 15, false, 0, 30),
+            BackupDebt(
+                1, "Car \"loan\"", 1_000_000, 1_500_000, 599, 25_000, 15, false, 0, 30,
+                taegBasisPoints = 712, type = DebtType.CAR_LOAN, totalInstallments = 60, installmentsPaidBefore = 18,
+            ),
             BackupDebt(2, "Card è", 0, null, 0, 0, 28, true, 1, 31),
         ),
         debtEntries = listOf(
@@ -91,7 +95,7 @@ class BackupJsonTest {
     @Test
     fun datesAreIsoAndHeaderIsPresent() {
         val root = JSONObject(BackupJson.serialize(sample()))
-        assertEquals(3, root.getInt("formatVersion"))
+        assertEquals(4, root.getInt("formatVersion"))
         assertEquals("0.4.0", root.getString("appVersion"))
         assertEquals("2026-11-10T09:30:00Z", root.getString("exportedAt"))
         val tx = root.getJSONArray("transactions").getJSONObject(0)
@@ -295,7 +299,7 @@ class BackupJsonTest {
 
     @Test
     fun rejectsUnsupportedVersion() {
-        val text = BackupJson.serialize(sample()).replace("\"formatVersion\": 3", "\"formatVersion\": 4")
+        val text = BackupJson.serialize(sample()).replace("\"formatVersion\": 4", "\"formatVersion\": 5")
         assertEquals(BackupError.UNSUPPORTED_VERSION, errorOf(text))
     }
 
@@ -347,5 +351,70 @@ class BackupJsonTest {
     fun rejectsBackupWithoutAccounts() {
         val s = sample().copy(accounts = emptyList(), transactions = emptyList())
         assertEquals(BackupError.INVALID_DATA, errorOf(BackupJson.serialize(s)))
+    }
+
+    @Test
+    fun version4DebtFieldsAreWritten() {
+        val debt = JSONObject(BackupJson.serialize(sample())).getJSONArray("debts").getJSONObject(0)
+        assertEquals(712, debt.getInt("taegBasisPoints"))
+        assertEquals("CAR_LOAN", debt.getString("type"))
+        assertEquals(60, debt.getInt("totalInstallments"))
+        assertEquals(18, debt.getInt("installmentsPaidBefore"))
+        val second = JSONObject(BackupJson.serialize(sample())).getJSONArray("debts").getJSONObject(1)
+        assertTrue(second.isNull("taegBasisPoints"))
+        assertEquals("OTHER", second.getString("type"))
+    }
+
+    @Test
+    fun version3FileStillRestoresWithDefaultDebtFields() {
+        // A version 3 file: debts without the version 4 keys.
+        val v3 = sample().copy(
+            formatVersion = 3,
+            debts = sample().debts.map {
+                it.copy(taegBasisPoints = null, type = DebtType.OTHER, totalInstallments = null, installmentsPaidBefore = null)
+            },
+        )
+        val text = BackupJson.serialize(v3)
+        val debt = JSONObject(text).getJSONArray("debts").getJSONObject(0)
+        assertTrue(!debt.has("type") && !debt.has("taegBasisPoints"))
+        val parsed = BackupJson.parse(text)
+        assertEquals(3, parsed.formatVersion)
+        assertEquals(v3.debts, parsed.debts)
+        assertEquals(DebtType.OTHER, parsed.debts[0].type)
+        assertNull(parsed.debts[0].taegBasisPoints)
+        assertNull(parsed.debts[0].totalInstallments)
+    }
+
+    @Test
+    fun version3ModelMustNotCarryVersion4DebtFields() {
+        try {
+            BackupJson.validate(sample().copy(formatVersion = 3))
+            fail("expected a BackupFormatException")
+        } catch (e: BackupFormatException) {
+            assertEquals(BackupError.INVALID_DATA, e.error)
+        }
+    }
+
+    @Test
+    fun rejectsBadVersion4DebtFields() {
+        val s = sample()
+        val d = s.debts[0]
+        for (bad in listOf(
+            d.copy(taegBasisPoints = 10_001),
+            d.copy(taegBasisPoints = -1),
+            d.copy(totalInstallments = 0),
+            d.copy(installmentsPaidBefore = -1),
+            d.copy(installmentsPaidBefore = 61),
+        )) {
+            try {
+                BackupJson.validate(s.copy(debts = listOf(bad, s.debts[1])))
+                fail("expected a BackupFormatException for $bad")
+            } catch (e: BackupFormatException) {
+                assertEquals(BackupError.INVALID_DATA, e.error)
+            }
+        }
+        val badType = JSONObject(BackupJson.serialize(s))
+        badType.getJSONArray("debts").getJSONObject(0).put("type", "SPACESHIP")
+        assertEquals(BackupError.INVALID_DATA, errorOf(badType.toString()))
     }
 }

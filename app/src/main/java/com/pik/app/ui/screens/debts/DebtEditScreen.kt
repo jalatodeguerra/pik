@@ -33,7 +33,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pik.app.R
 import com.pik.app.data.db.DebtEntity
+import com.pik.app.data.repo.DebtInput
 import com.pik.app.domain.Apr
+import com.pik.app.domain.DebtType
 import com.pik.app.domain.Money
 import com.pik.app.ui.components.PikBackTopBar
 import com.pik.app.ui.components.PikCard
@@ -49,6 +51,8 @@ import java.time.LocalDate
 
 private const val MAX_NAME_LENGTH = 40
 private const val MAX_APR_TEXT_LENGTH = 7
+private const val MAX_INSTALMENTS_TEXT_LENGTH = 4
+private const val MAX_INSTALMENTS = 1200
 
 /**
  * Add or edit a debt. [onLeaveToList] is used after archiving or deleting: the debt page below
@@ -83,9 +87,7 @@ fun DebtEditScreen(
             else -> DebtEditForm(
                 existing = state.existing,
                 paymentCount = state.paymentCount,
-                onSave = { name, balance, original, apr, min, dueDay ->
-                    viewModel.save(name, balance, original, apr, min, dueDay, onDone = onBack)
-                },
+                onSave = { input -> viewModel.save(input, onDone = onBack) },
                 onArchive = { archived -> viewModel.setArchived(archived, onDone = onLeaveToList) },
                 onDelete = { viewModel.delete { deleted -> if (deleted) onLeaveToList() } },
                 modifier = Modifier.weight(1f),
@@ -99,7 +101,7 @@ fun DebtEditScreen(
 private fun DebtEditForm(
     existing: DebtEntity?,
     paymentCount: Int,
-    onSave: (name: String, balanceCents: Long, originalCents: Long?, aprBasisPoints: Int, minCents: Long, dueDay: Int) -> Unit,
+    onSave: (DebtInput) -> Unit,
     onArchive: (archived: Boolean) -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
@@ -111,7 +113,13 @@ private fun DebtEditForm(
     var originalText by remember {
         mutableStateOf(existing?.originalAmountCents?.let { Money.formatPlain(it) }.orEmpty())
     }
-    var aprText by remember { mutableStateOf(existing?.let { Apr.formatPlain(it.aprBasisPoints) }.orEmpty()) }
+    var type by remember { mutableStateOf(existing?.type ?: DebtType.OTHER) }
+    var tanText by remember { mutableStateOf(existing?.let { Apr.formatPlain(it.aprBasisPoints) }.orEmpty()) }
+    var taegText by remember {
+        mutableStateOf(existing?.taegBasisPoints?.let { Apr.formatPlain(it) }.orEmpty())
+    }
+    var totalText by remember { mutableStateOf(existing?.totalInstallments?.toString().orEmpty()) }
+    var paidBeforeText by remember { mutableStateOf(existing?.installmentsPaidBefore?.toString().orEmpty()) }
     var minText by remember { mutableStateOf(existing?.let { Money.formatPlain(it.minPaymentCents) }.orEmpty()) }
     var dueDay by remember { mutableStateOf(existing?.dueDay ?: LocalDate.now().dayOfMonth.coerceIn(1, 28)) }
     var pickingDay by remember { mutableStateOf(false) }
@@ -120,9 +128,20 @@ private fun DebtEditForm(
     val balance = Money.parse(balanceText)?.takeIf { it >= 0 }
     val originalBlank = originalText.isBlank()
     val original = if (originalBlank) null else Money.parse(originalText)?.takeIf { it >= 0 }
-    val apr = Apr.parse(aprText)
+    val tan = Apr.parse(tanText)
+    val taegBlank = taegText.isBlank()
+    val taeg = if (taegBlank) null else Apr.parse(taegText)
     val min = Money.parse(minText)?.takeIf { it >= 0 }
-    val valid = name.isNotBlank() && balance != null && (originalBlank || original != null) && apr != null && min != null
+    val hasInstalments = type.hasInstalments
+    val totalBlank = totalText.isBlank()
+    val total = if (totalBlank) null else totalText.toIntOrNull()?.takeIf { it in 1..MAX_INSTALMENTS }
+    val totalOk = !hasInstalments || totalBlank || total != null
+    val paidBlank = paidBeforeText.isBlank()
+    val paidBefore = if (paidBlank) null else paidBeforeText.toIntOrNull()?.takeIf { it in 0..MAX_INSTALMENTS }
+    val paidOk = !hasInstalments || total == null || paidBlank || (paidBefore != null && paidBefore <= total)
+    val taegLowerThanTan = tan != null && taeg != null && taeg < tan
+    val valid = name.isNotBlank() && balance != null && (originalBlank || original != null) &&
+        tan != null && (taegBlank || taeg != null) && min != null && totalOk && paidOk
 
     Column(modifier = modifier) {
         Column(
@@ -161,14 +180,54 @@ private fun DebtEditForm(
                         isError = !originalBlank && original == null,
                         supportingText = stringResource(R.string.debt_original_hint),
                     )
+                    Text(
+                        text = stringResource(R.string.debt_type),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = PikColors.TextSecondary,
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        for (option in DebtType.values()) {
+                            PikFilterChip(
+                                label = stringResource(option.labelRes()),
+                                selected = option == type,
+                                onClick = { type = option },
+                            )
+                        }
+                    }
                     OutlinedTextField(
-                        value = aprText,
-                        onValueChange = { aprText = it.take(MAX_APR_TEXT_LENGTH) },
+                        value = tanText,
+                        onValueChange = { tanText = it.take(MAX_APR_TEXT_LENGTH) },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text(stringResource(R.string.debt_apr)) },
-                        placeholder = { Text(stringResource(R.string.debt_apr_hint)) },
+                        label = { Text(stringResource(R.string.debt_tan)) },
+                        placeholder = { Text(stringResource(R.string.debt_rate_placeholder)) },
+                        supportingText = { Text(stringResource(R.string.debt_tan_hint)) },
                         suffix = { Text("%") },
-                        isError = aprText.isNotBlank() && apr == null,
+                        isError = tanText.isNotBlank() && tan == null,
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = pikTextFieldColors(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                    )
+                    OutlinedTextField(
+                        value = taegText,
+                        onValueChange = { taegText = it.take(MAX_APR_TEXT_LENGTH) },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.debt_taeg)) },
+                        placeholder = { Text(stringResource(R.string.debt_rate_placeholder)) },
+                        supportingText = {
+                            Text(
+                                text = stringResource(
+                                    if (taegLowerThanTan) R.string.debt_taeg_lower_warning else R.string.debt_taeg_hint,
+                                ),
+                                // a soft warning: it never blocks saving
+                                color = if (taegLowerThanTan) PikColors.Amber else PikColors.TextSecondary,
+                            )
+                        },
+                        suffix = { Text("%") },
+                        isError = !taegBlank && taeg == null,
                         singleLine = true,
                         shape = RoundedCornerShape(16.dp),
                         colors = pikTextFieldColors(),
@@ -177,9 +236,40 @@ private fun DebtEditForm(
                     PikMoneyField(
                         value = minText,
                         onValueChange = { minText = it },
-                        label = stringResource(R.string.debt_min_payment),
+                        label = stringResource(if (hasInstalments) R.string.debt_instalment else R.string.debt_min_payment),
                         isError = minText.isNotBlank() && min == null,
                     )
+                    if (hasInstalments) {
+                        OutlinedTextField(
+                            value = totalText,
+                            onValueChange = { totalText = it.filter(Char::isDigit).take(MAX_INSTALMENTS_TEXT_LENGTH) },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text(stringResource(R.string.debt_total_installments)) },
+                            placeholder = { Text(stringResource(R.string.debt_total_installments_hint)) },
+                            isError = !totalOk,
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = pikTextFieldColors(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        )
+                        if (total != null) {
+                            OutlinedTextField(
+                                value = paidBeforeText,
+                                onValueChange = {
+                                    paidBeforeText = it.filter(Char::isDigit).take(MAX_INSTALMENTS_TEXT_LENGTH)
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text(stringResource(R.string.debt_installments_paid_before)) },
+                                placeholder = { Text("0") },
+                                supportingText = { Text(stringResource(R.string.debt_installments_paid_before_hint)) },
+                                isError = !paidOk,
+                                singleLine = true,
+                                shape = RoundedCornerShape(16.dp),
+                                colors = pikTextFieldColors(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            )
+                        }
+                    }
                     PikSecondaryButton(
                         text = stringResource(R.string.debt_due_day_field, dueDay),
                         onClick = { pickingDay = true },
@@ -187,7 +277,7 @@ private fun DebtEditForm(
                     )
                 }
             }
-            if (!valid && (name.isNotBlank() || balanceText.isNotBlank() || aprText.isNotBlank() || minText.isNotBlank())) {
+            if (!valid && (name.isNotBlank() || balanceText.isNotBlank() || tanText.isNotBlank() || minText.isNotBlank())) {
                 Text(
                     text = stringResource(R.string.debt_invalid),
                     style = MaterialTheme.typography.bodyMedium,
@@ -227,8 +317,22 @@ private fun DebtEditForm(
         PikPrimaryButton(
             text = stringResource(R.string.action_save),
             onClick = {
-                if (valid && balance != null && apr != null && min != null) {
-                    onSave(name.trim(), balance, original, apr, min, dueDay)
+                if (valid && balance != null && tan != null && min != null) {
+                    val tracked = hasInstalments && total != null
+                    onSave(
+                        DebtInput(
+                            name = name.trim(),
+                            startingBalanceCents = balance,
+                            originalAmountCents = original,
+                            tanBasisPoints = tan,
+                            taegBasisPoints = taeg,
+                            type = type,
+                            minPaymentCents = min,
+                            dueDay = dueDay,
+                            totalInstallments = if (tracked) total else null,
+                            installmentsPaidBefore = if (tracked) (paidBefore ?: 0) else null,
+                        ),
+                    )
                 }
             },
             enabled = valid,

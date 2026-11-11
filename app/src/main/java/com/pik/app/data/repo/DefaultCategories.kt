@@ -2,30 +2,50 @@ package com.pik.app.data.repo
 
 import com.pik.app.data.db.CategoryEntity
 import com.pik.app.domain.CategoryKind
+import java.util.Locale
 
+/**
+ * The categories a new install starts with. They are seeded once, in the device language at that
+ * moment (Italian names when the language is Italian, English otherwise). Existing categories are
+ * never renamed when the language changes: they belong to the user.
+ */
 object DefaultCategories {
-    private fun expense(order: Int, name: String, icon: String, color: String) =
-        CategoryEntity(name = name, kind = CategoryKind.EXPENSE, colorKey = color, iconKey = icon, sortOrder = order)
+    private class Def(val en: String, val it: String, val icon: String, val color: String)
 
-    private fun income(order: Int, name: String, icon: String, color: String) =
-        CategoryEntity(name = name, kind = CategoryKind.INCOME, colorKey = color, iconKey = icon, sortOrder = order)
-
-    val all: List<CategoryEntity> = listOf(
-        expense(0, "Groceries", "cart", "mint"),
-        expense(1, "Eating out", "restaurant", "orange"),
-        expense(2, "Coffee", "coffee", "amber"),
-        expense(3, "Transport", "bus", "blue"),
-        expense(4, "Rent", "home", "violet"),
-        expense(5, "Bills & utilities", "bills", "teal"),
-        expense(6, "Shopping", "bag", "pink"),
-        expense(7, "Health", "health", "coral"),
-        expense(8, "Entertainment", "movie", "violet"),
-        expense(9, "Subscriptions", "subscriptions", "blue"),
-        expense(10, "Gifts", "gift", "pink"),
-        expense(11, "Other", "other", "slate"),
-        income(0, "Salary", "salary", "lime"),
-        income(1, "Refund", "refund", "teal"),
-        income(2, "Gift received", "redeem", "pink"),
-        income(3, "Other income", "income", "slate"),
+    private val expenses = listOf(
+        Def("Groceries", "Spesa", "cart", "mint"),
+        Def("Eating out", "Ristoranti", "restaurant", "orange"),
+        Def("Coffee", "Caff\u00E8", "coffee", "amber"),
+        Def("Transport", "Trasporti", "bus", "blue"),
+        Def("Rent", "Affitto", "home", "violet"),
+        Def("Bills & utilities", "Bollette e utenze", "bills", "teal"),
+        Def("Shopping", "Shopping", "bag", "pink"),
+        Def("Health", "Salute", "health", "coral"),
+        Def("Entertainment", "Svago", "movie", "violet"),
+        Def("Subscriptions", "Abbonamenti", "subscriptions", "blue"),
+        Def("Gifts", "Regali", "gift", "pink"),
+        Def("Other", "Altro", "other", "slate"),
     )
+
+    private val incomes = listOf(
+        Def("Salary", "Stipendio", "salary", "lime"),
+        Def("Refund", "Rimborso", "refund", "teal"),
+        Def("Gift received", "Regalo ricevuto", "redeem", "pink"),
+        Def("Other income", "Altre entrate", "income", "slate"),
+    )
+
+    /** The default categories with names in the language of [locale] (Italian or English). */
+    fun forLocale(locale: Locale = Locale.getDefault()): List<CategoryEntity> {
+        val italian = locale.language == "it"
+        fun build(defs: List<Def>, kind: CategoryKind) = defs.mapIndexed { order, d ->
+            CategoryEntity(
+                name = if (italian) d.it else d.en,
+                kind = kind,
+                colorKey = d.color,
+                iconKey = d.icon,
+                sortOrder = order,
+            )
+        }
+        return build(expenses, CategoryKind.EXPENSE) + build(incomes, CategoryKind.INCOME)
+    }
 }

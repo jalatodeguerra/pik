@@ -58,6 +58,34 @@ Two tables are added by `MIGRATION_2_3` (existing tables are untouched):
 Instead a debt that has payments cannot be deleted (archive it); a debt without payments can be
 deleted and takes its entries with it.
 
+### Schema version 4: TAN, TAEG, loan types, instalments
+
+`MIGRATION_3_4` only adds columns to `debts` (existing debts keep everything):
+
+```sql
+ALTER TABLE `debts` ADD COLUMN `taegBasisPoints` INTEGER
+ALTER TABLE `debts` ADD COLUMN `type` TEXT NOT NULL DEFAULT 'OTHER'
+ALTER TABLE `debts` ADD COLUMN `totalInstallments` INTEGER
+ALTER TABLE `debts` ADD COLUMN `installmentsPaidBefore` INTEGER
+```
+
+- **TAN** (tasso annuo nominale) is the existing `aprBasisPoints` column (kept, so no table rebuild); it
+  is the only rate used for interest maths. **TAEG** (tasso annuo effettivo globale, total yearly cost
+  including fees) is the optional `taegBasisPoints`. It is shown ("TAN 7,50% · TAEG 9,12%") and used to
+  rank debts for the "Highest interest" payoff order (TAEG when set, otherwise TAN). The edit screen shows a
+  soft warning (it does not block saving) when the TAEG is lower than the TAN.
+- **Loan type** (`type`, enum `DebtType`): car loan, personal loan, mortgage, consumer credit, student loan,
+  family or friends, other (default). Each has an icon, shown in the list, the detail page and as chips on
+  the edit page.
+- **Instalments (rate)**: for every type except family or friends / other, `minPaymentCents` is shown as
+  the "Monthly instalment (rata)". Optional `totalInstallments` (e.g. 60) and `installmentsPaidBefore`
+  (paid before the loan was added to Pik, 0 when left empty). Instalments paid so far = paid before + the
+  payments logged in Pik for the debt (expense with `debtId`) whose amount is **at least 90 %** of the
+  instalment; smaller payments still lower the balance but are not counted as a rata. Left = total - paid
+  (never below 0). The end month is the current month + left - 1 when this month's rata is already paid,
+  otherwise the current month + left. The list and the detail page show "Instalment 18 of 60 · 42 left ·
+  ends March 2030" and a progress bar by instalments (`domain/Installments.kt`, unit tested).
+
 ### Balance rules
 
 ```
@@ -84,13 +112,13 @@ delete it, tapping a payment opens it for editing or deleting.
 `PayoffSimulator` in `domain/PayoffSimulator.kt` is pure Kotlin. The first simulated month is the
 current month. Each month:
 
-1. interest is added to every open debt: `balance x apr / 12`, rounded half up to the cent;
+1. interest is added to every open debt: `balance x TAN / 12`, rounded half up to the cent;
 2. every minimum payment is paid (capped at the balance);
 3. the **pool** (the extra per month, plus the minimums of debts that are already paid off, plus any part
    of a minimum that was not needed) goes to the target debt and cascades to the next one in the same
    month. This is the snowball roll-over: a cleared debt's payment is never lost.
 
-The target order is fixed from the starting balances: highest interest first, or smallest balance first
+The target order is fixed from the starting balances: highest interest first (by TAEG when a debt has one, else by TAN; interest itself always uses the TAN), or smallest balance first
 (ties by id). The result has the debt-free month, number of months, total interest and the payoff month of
 each debt. `neverPaysOff` is true when a month ends without the total balance going down (the payment does
 not cover the interest, and it never will) or after 600 months (50 years). `compareOrders` gives both
@@ -172,7 +200,7 @@ when the figure is above 0.
 ## Stack
 
 - Kotlin 2.1.21, Jetpack Compose (Material 3, BOM 2025.05.01), dark theme only
-- Room 2.7.1 (schema exported to `app/schemas`, now at version 3), DataStore Preferences
+- Room 2.7.1 (schema exported to `app/schemas`, now at version 4), DataStore Preferences
 - Hilt for dependency injection, Navigation Compose
 - Fonts: Outfit (headings, numbers) and Inter (body), both under the SIL OFL (see `licenses/`)
 - minSdk 26, target/compile SDK 35, Gradle 8.14.3, AGP 8.10.1
@@ -204,7 +232,7 @@ app/src/main/java/com/pik/app/
   data/prefs    DataStore preferences (onboardingComplete, lastUsedAccountId, lastBackupEpochDay,
                 monthStartDay, expectedIncomeCents, extraPerMonthCents, payoffOrder)
   domain        pure Kotlin, no Android: Money, AmountInput (keypad), BalanceCalculator, BalanceCheck,
-                ActivityFilter, DateFormats, Period, BudgetCalculator, SafeToSpendCalculator,
+                ActivityFilter, DateFormats (locale aware), Installments, Period, BudgetCalculator, SafeToSpendCalculator,
                 DebtCalculator / DebtPaymentsDue, PayoffSimulator, Apr
   backup        backup file model and JSON (de)serialization with validation (org.json only)
   di            Hilt modules
@@ -215,6 +243,17 @@ app/src/main/java/com/pik/app/
 ```
 
 Layers: Compose screens -> ViewModels (one `StateFlow` UI state per screen) -> repositories -> Room.
+
+## Italian and English
+
+All texts are in `res/values/strings.xml` (English) and `res/values-it/strings.xml` (Italian); every string
+must exist in both, because lint (`MissingTranslation`) is an error. The app follows the phone language;
+on Android 13+ Settings -> Language opens the per-app language screen (`res/xml/locales_config.xml` lists
+`en` and `it`, referenced by `android:localeConfig`), on older versions the system language settings.
+`DateFormats` uses the current locale for month and day names ("3 nov 2026", "Novembre 2026" as a heading,
+"marzo 2030" inside a sentence); it takes a `Locale` so tests cover both. Amounts stay `1.234,56 €` in both
+languages. The default categories are seeded once when a new install finishes setup, in Italian when the
+phone language is Italian; existing categories are never renamed.
 
 ## Money and date rules
 
@@ -233,8 +272,9 @@ Layers: Compose screens -> ViewModels (one `StateFlow` UI state per screen) -> r
 The database holds real data, so `fallbackToDestructiveMigration` is never used. Version 2 adds the
 `budgets` table through `MIGRATION_1_2` (`data/db/Migrations.kt`), registered in `DatabaseModule`;
 existing tables are untouched. Version 3 adds `debts` and `debt_entries` through `MIGRATION_2_3`, also
-registered in `DatabaseModule`. `MigrationTest` (instrumented) creates a version 1 database (and a version 2
-one) with an account, a category and a transaction, migrates it (1 -> 3 and 2 -> 3) and checks that the
+registered in `DatabaseModule`. Version 4 adds the TAEG, loan type and instalment columns to `debts`
+through `MIGRATION_3_4` (add-column only, see "Schema version 4"). `MigrationTest` (instrumented) creates a version 1 database (and a version 2
+one) with an account, a category and a transaction, migrates it (1 -> 3, 2 -> 3, 3 -> 4 and 1 -> 4) and checks that the
 rows survived and that the new tables exist and accept rows. Every future schema change needs a migration
 and a test like this. After changing an entity, build once so Room writes the new `app/schemas/.../N.json`
 and commit it: the migration tests read it.
@@ -248,15 +288,17 @@ with the Android file picker (Storage Access Framework: no storage permission ne
 plain, readable file you can keep in your cloud storage or email to yourself:
 
 ```
-{ "formatVersion": 3, "appVersion": "0.3.0", "exportedAt": "2026-11-10T09:30:00Z",
+{ "formatVersion": 4, "appVersion": "0.4.0", "exportedAt": "2026-11-10T09:30:00Z",
   "accounts": [...], "categories": [...], "transactions": [...], "budgets": [...],
   "debts": [...], "debtEntries": [...],
   "settings": { "monthStartDay": 27, "expectedIncomeCents": 250000,
                 "extraPerMonthCents": 5000, "payoffOrder": "HIGHEST_INTEREST" } }
 ```
 
-`formatVersion` 2 added `budgets`, 3 added `debts`, `debtEntries` and the optional `settings` object.
-Restore still accepts `formatVersion` 1 and 2 files (the restored database then has no budgets and/or no
+`formatVersion` 2 added `budgets`, 3 added `debts`, `debtEntries` and the optional `settings` object, 4 added
+`taegBasisPoints`, `type`, `totalInstallments` and `installmentsPaidBefore` to each debt (`aprBasisPoints` is the
+TAN). Restore still accepts `formatVersion` 1 to 3 files (missing debt fields become: no TAEG, type OTHER, no
+instalments); files from version 1 and 2 (the restored database then has no budgets and/or no
 debts, and a stray `debtId` in an old file is dropped). A budget must point to an existing category (or have
 a null category for the overall budget), have a non-negative limit, a `yyyy-MM` start period and be unique
 per category and start period. A debt entry must point to a debt in the file, a transaction with a `debtId`

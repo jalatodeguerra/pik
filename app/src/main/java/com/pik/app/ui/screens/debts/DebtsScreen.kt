@@ -44,7 +44,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pik.app.R
 import com.pik.app.data.repo.DebtItem
-import com.pik.app.domain.Apr
 import com.pik.app.domain.DateFormats
 import com.pik.app.domain.Money
 import com.pik.app.domain.PayoffOrder
@@ -253,7 +252,7 @@ private fun SummaryCard(state: DebtsUiState) {
                     Text(
                         text = stringResource(
                             R.string.debts_debt_free_by,
-                            plan.debtFreeMonth?.let { DateFormats.monthYear(it) }.orEmpty(),
+                            plan.debtFreeMonth?.let { DateFormats.monthYearInline(it) }.orEmpty(),
                         ),
                         style = MaterialTheme.typography.titleMedium,
                         color = PikColors.TextPrimary,
@@ -430,7 +429,7 @@ private fun WhatIfCard(state: DebtsUiState, onChange: (Long) -> Unit, onUse: () 
                         Text(
                             text = stringResource(
                                 R.string.debts_debt_free_by,
-                                result.debtFreeMonth?.let { DateFormats.monthYear(it) }.orEmpty(),
+                                result.debtFreeMonth?.let { DateFormats.monthYearInline(it) }.orEmpty(),
                             ),
                             style = MaterialTheme.typography.titleMedium,
                             color = PikColors.TextPrimary,
@@ -490,6 +489,12 @@ private fun DebtRow(row: DebtRowUi, onClick: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             OrderBadge(row.orderNumber)
+            Icon(
+                imageVector = debt.type.icon(),
+                contentDescription = stringResource(debt.type.labelRes()),
+                tint = PikColors.TextSecondary,
+                modifier = Modifier.size(24.dp),
+            )
             Column(Modifier.weight(1f)) {
                 Text(
                     text = debt.name,
@@ -500,8 +505,8 @@ private fun DebtRow(row: DebtRowUi, onClick: () -> Unit) {
                 )
                 Text(
                     text = stringResource(
-                        R.string.debts_row_details,
-                        Apr.format(debt.aprBasisPoints),
+                        if (debt.type.hasInstalments) R.string.debts_row_details_rata else R.string.debts_row_details,
+                        ratesText(debt),
                         Money.format(debt.minPaymentCents),
                         debt.dueDay,
                     ),
@@ -532,6 +537,22 @@ private fun DebtRow(row: DebtRowUi, onClick: () -> Unit) {
             color = PikColors.Blue,
             modifier = Modifier.padding(top = 10.dp),
         )
+        val installments = item.installments()
+        if (installments != null && debt.type.hasInstalments) {
+            Text(
+                text = installmentsText(installments),
+                style = MaterialTheme.typography.bodySmall,
+                color = PikColors.TextSecondary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+            PikProgressBar(
+                fraction = installments.fraction,
+                color = PikColors.Lime,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
     }
 }
 

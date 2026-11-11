@@ -1,5 +1,9 @@
 package com.pik.app.ui.screens.settings
 
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -42,6 +46,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -69,6 +74,7 @@ import com.pik.app.ui.components.pikTextFieldColors
 import com.pik.app.ui.theme.PikColors
 import com.pik.app.ui.theme.PikNumberStyles
 import java.time.LocalDate
+import java.util.Locale
 
 private const val MAX_NAME_LENGTH = 40
 
@@ -83,6 +89,31 @@ private fun SettingsMessage.stringRes(): Int = when (this) {
     SettingsMessage.RESTORE_FAILED -> R.string.restore_failed
     SettingsMessage.CANNOT_ARCHIVE_LAST_ACCOUNT -> R.string.account_cannot_archive_last
     SettingsMessage.ACCOUNT_IN_USE -> R.string.account_in_use
+}
+
+/** The language the app is shown in, in its own name ("English", "Italiano"). */
+private fun currentLanguageName(): String {
+    val locale = Locale.getDefault()
+    return locale.getDisplayLanguage(locale).replaceFirstChar { it.titlecase(locale) }
+}
+
+/**
+ * Android 13+ has a per-app language screen (the languages come from res/xml/locales_config.xml).
+ * Older versions only have the system language settings.
+ */
+private fun openLanguageSettings(context: android.content.Context) {
+    val perApp = Intent(Settings.ACTION_APP_LOCALE_SETTINGS)
+        .setData(Uri.fromParts("package", context.packageName, null))
+    val intent = if (Build.VERSION.SDK_INT >= 33) perApp else Intent(Settings.ACTION_LOCALE_SETTINGS)
+    try {
+        context.startActivity(intent)
+    } catch (e: android.content.ActivityNotFoundException) {
+        try {
+            context.startActivity(Intent(Settings.ACTION_LOCALE_SETTINGS))
+        } catch (e2: android.content.ActivityNotFoundException) {
+            // no settings screen to show: nothing to do
+        }
+    }
 }
 
 /** Which account the editor dialog works on: null item means "new account". */
@@ -109,6 +140,7 @@ fun SettingsScreen(
     var checking by remember { mutableStateOf<SettingsAccount?>(null) }
     var editingMonthStart by remember { mutableStateOf(false) }
     var editingIncome by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     val createLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json"),
@@ -180,6 +212,15 @@ fun SettingsScreen(
                         value = state.expectedIncomeCents?.let { Money.format(it) }
                             ?: stringResource(R.string.settings_expected_income_not_set),
                         onClick = { editingIncome = true },
+                    )
+                }
+
+                SectionTitle(stringResource(R.string.settings_language))
+                PikCard(modifier = Modifier.fillMaxWidth()) {
+                    ValueRow(
+                        label = stringResource(R.string.settings_language),
+                        value = currentLanguageName(),
+                        onClick = { openLanguageSettings(context) },
                     )
                 }
 

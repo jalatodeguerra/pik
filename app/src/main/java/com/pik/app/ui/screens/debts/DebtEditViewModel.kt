@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pik.app.data.db.DebtEntity
+import com.pik.app.data.repo.DebtInput
 import com.pik.app.data.repo.DebtRepository
 import com.pik.app.ui.nav.Routes
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -50,22 +51,10 @@ class DebtEditViewModel @Inject constructor(
         }
     }
 
-    fun save(
-        name: String,
-        startingBalanceCents: Long,
-        originalAmountCents: Long?,
-        aprBasisPoints: Int,
-        minPaymentCents: Long,
-        dueDay: Int,
-        onDone: () -> Unit,
-    ) {
+    fun save(input: DebtInput, onDone: () -> Unit) {
         viewModelScope.launch {
             val id = editingId
-            if (id == null) {
-                debtRepository.add(name, startingBalanceCents, originalAmountCents, aprBasisPoints, minPaymentCents, dueDay)
-            } else {
-                debtRepository.update(id, name, startingBalanceCents, originalAmountCents, aprBasisPoints, minPaymentCents, dueDay)
-            }
+            if (id == null) debtRepository.add(input) else debtRepository.update(id, input)
             onDone()
         }
     }

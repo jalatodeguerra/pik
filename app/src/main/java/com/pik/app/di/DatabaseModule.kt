@@ -8,6 +8,7 @@ import com.pik.app.data.db.CategoryDao
 import com.pik.app.data.db.DebtDao
 import com.pik.app.data.db.MIGRATION_1_2
 import com.pik.app.data.db.MIGRATION_2_3
+import com.pik.app.data.db.MIGRATION_3_4
 import com.pik.app.data.db.PikDatabase
 import com.pik.app.data.db.TransactionDao
 import dagger.Module
@@ -26,7 +27,7 @@ object DatabaseModule {
     fun provideDatabase(@ApplicationContext context: Context): PikDatabase =
         Room.databaseBuilder(context, PikDatabase::class.java, PikDatabase.NAME)
             // Never fallbackToDestructiveMigration: the database holds the user's real data.
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
             .build()
 
     @Provides

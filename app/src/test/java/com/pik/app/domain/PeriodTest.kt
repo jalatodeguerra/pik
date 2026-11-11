@@ -13,7 +13,7 @@ class PeriodTest {
         val p = Period.containing(d(2026, 11, 11), 1)
         assertEquals(d(2026, 11, 1), p.start)
         assertEquals(d(2026, 11, 30), p.endInclusive)
-        assertEquals("November", p.label())
+        assertEquals("November", p.label(java.util.Locale.ENGLISH))
         assertEquals("2026-11", p.key)
         assertEquals(30, p.lengthDays)
     }
@@ -22,7 +22,7 @@ class PeriodTest {
         val p = Period.containing(d(2026, 11, 27), 27)
         assertEquals(d(2026, 11, 27), p.start)
         assertEquals(d(2026, 12, 26), p.endInclusive)
-        assertEquals("27 Nov \u2013 26 Dec", p.label())
+        assertEquals("27 Nov \u2013 26 Dec", p.label(java.util.Locale.ENGLISH))
         assertEquals("2026-11", p.key)
     }
 
@@ -30,8 +30,16 @@ class PeriodTest {
         val p = Period.containing(d(2026, 11, 11), 27)
         assertEquals(d(2026, 10, 27), p.start)
         assertEquals(d(2026, 11, 26), p.endInclusive)
-        assertEquals("27 Oct \u2013 26 Nov", p.label())
+        assertEquals("27 Oct \u2013 26 Nov", p.label(java.util.Locale.ENGLISH))
         assertEquals("2026-10", p.key)
+    }
+
+    @Test fun labelInItalian() {
+        assertEquals("Novembre", Period.containing(d(2026, 11, 11), 1).label(java.util.Locale.ITALIAN))
+        assertEquals(
+            "27 ott \u2013 26 nov",
+            Period.containing(d(2026, 11, 11), 27).label(java.util.Locale.ITALIAN),
+        )
     }
 
     @Test fun lastDayOfPeriodAndFirstOfNext() {

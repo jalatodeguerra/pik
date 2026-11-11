@@ -3,6 +3,7 @@ package com.pik.app.backup
 import com.pik.app.domain.AccountType
 import com.pik.app.domain.CategoryKind
 import com.pik.app.domain.DebtEntryType
+import com.pik.app.domain.DebtType
 import com.pik.app.domain.PayoffOrder
 import com.pik.app.domain.TransactionType
 import java.time.LocalDate
@@ -58,13 +59,21 @@ data class BackupDebt(
     val name: String,
     val startingBalanceCents: Long,
     val originalAmountCents: Long?,
-    /** Annual rate in basis points: 1250 = 12,50 %. */
+    /** TAN (nominal annual rate) in basis points: 1250 = 12,50 %. The key keeps its old name. */
     val aprBasisPoints: Int,
     val minPaymentCents: Long,
     val dueDay: Int,
     val archived: Boolean,
     val sortOrder: Int,
     val createdAt: Long,
+    /** TAEG in basis points. formatVersion 4; null in older files. */
+    val taegBasisPoints: Int? = null,
+    /** formatVersion 4; OTHER in older files. */
+    val type: DebtType = DebtType.OTHER,
+    /** Total number of instalments of the loan. formatVersion 4; null in older files. */
+    val totalInstallments: Int? = null,
+    /** Instalments paid before the loan was added to Pik. formatVersion 4; null in older files. */
+    val installmentsPaidBefore: Int? = null,
 )
 
 data class BackupDebtEntry(
