@@ -50,7 +50,10 @@ data class TransactionEntity(
     val toAccountId: Long? = null,
     val categoryId: Long? = null,
     val note: String = "",
-    /** Reserved for the debts milestone (no foreign key yet). */
+    /**
+     * Set on an EXPENSE that pays a debt (then categoryId is null). No foreign key: DebtRepository
+     * refuses to delete a debt that has payments.
+     */
     val debtId: Long? = null,
     /** Reserved for recurring transactions (no foreign key yet). */
     val recurringId: Long? = null,

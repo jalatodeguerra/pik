@@ -326,6 +326,7 @@ fun SettingsScreen(
                 pending.accountCount,
                 pending.categoryCount,
                 pending.transactionCount,
+                pending.debtCount,
             ),
             confirmLabel = stringResource(R.string.backup_restore_confirm),
             onConfirm = viewModel::confirmRestore,

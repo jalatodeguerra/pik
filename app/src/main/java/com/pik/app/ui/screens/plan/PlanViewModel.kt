@@ -5,10 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.pik.app.data.prefs.PikPreferences
 import com.pik.app.data.repo.BudgetRepository
 import com.pik.app.data.repo.CategoryRepository
+import com.pik.app.data.repo.DebtRepository
 import com.pik.app.data.repo.TransactionRepository
 import com.pik.app.domain.BalanceCalculator
 import com.pik.app.domain.BudgetCalculator
 import com.pik.app.domain.BudgetProgress
+import com.pik.app.domain.DebtPaymentsDue
 import com.pik.app.domain.Period
 import com.pik.app.domain.SafeToSpend
 import com.pik.app.domain.SafeToSpendCalculator
@@ -40,6 +42,8 @@ data class PlanNotBudgeted(
     val iconKey: String?,
     val colorKey: String?,
     val spentCents: Long,
+    /** The "Debt payments" bucket (expenses that pay a debt), shown instead of Uncategorised. */
+    val isDebtPayment: Boolean = false,
 )
 
 data class PlanUiState(
@@ -63,6 +67,7 @@ class PlanViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val budgetRepository: BudgetRepository,
     private val categoryRepository: CategoryRepository,
+    debtRepository: DebtRepository,
     prefs: PikPreferences,
 ) : ViewModel() {
 
@@ -84,6 +89,16 @@ class PlanViewModel @Inject constructor(
         val expectedIncomeCents: Long?,
     )
 
+    private data class DebtInfo(val inputs: List<DebtPaymentsDue.Input>, val extraPerMonthCents: Long)
+
+    private val debtInfo = combine(debtRepository.observeDebts(), prefs.extraPerMonthCents) { debts, extra ->
+        DebtInfo(
+            inputs = debts.filter { !it.debt.archived }
+                .map { DebtPaymentsDue.Input(it.debt.id, it.remainingCents, it.debt.minPaymentCents) },
+            extraPerMonthCents = extra,
+        )
+    }
+
     val state: StateFlow<PlanUiState> = combine(
         todayFlow,
         prefs.monthStartDay,
@@ -98,8 +113,11 @@ class PlanViewModel @Inject constructor(
             transactionRepository.observeRange(sel.period.start, sel.period.endInclusive),
             budgetRepository.observeBudgets(),
             categoryRepository.observeAll(),
-        ) { rows, budgets, categories ->
-            val facts = rows.map { TxFacts(it.type, it.amountCents, it.accountId, it.toAccountId, it.categoryId) }
+            debtInfo,
+        ) { rows, budgets, categories, debts ->
+            val facts = rows.map {
+                TxFacts(it.type, it.amountCents, it.accountId, it.toAccountId, it.categoryId, it.debtId)
+            }
             val totals = BalanceCalculator.monthTotals(facts)
             val limits = BudgetCalculator.effectiveLimits(budgets, sel.period.key)
             val overview = BudgetCalculator.overview(limits, BudgetCalculator.spendByCategory(facts))
@@ -118,6 +136,7 @@ class PlanViewModel @Inject constructor(
                         incomeReceivedCents = totals.incomeCents,
                         spentCents = totals.expenseCents,
                         daysLeft = sel.period.daysLeft(sel.today),
+                        debtPaymentsDueCents = DebtPaymentsDue.compute(debts.inputs, facts, debts.extraPerMonthCents),
                     )
                 } else {
                     null
@@ -134,6 +153,7 @@ class PlanViewModel @Inject constructor(
                         iconKey = category?.iconKey,
                         colorKey = category?.colorKey,
                         spentCents = item.spentCents,
+                        isDebtPayment = item.isDebtPayment,
                     )
                 },
                 hasAnyBudget = overview.hasAnyBudget,

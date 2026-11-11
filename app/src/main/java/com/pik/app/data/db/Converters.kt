@@ -3,6 +3,7 @@ package com.pik.app.data.db
 import androidx.room.TypeConverter
 import com.pik.app.domain.AccountType
 import com.pik.app.domain.CategoryKind
+import com.pik.app.domain.DebtEntryType
 import com.pik.app.domain.TransactionType
 import java.time.LocalDate
 
@@ -30,4 +31,10 @@ class Converters {
 
     @TypeConverter
     fun stringToTransactionType(value: String?): TransactionType? = value?.let { TransactionType.valueOf(it) }
+
+    @TypeConverter
+    fun debtEntryTypeToString(value: DebtEntryType?): String? = value?.name
+
+    @TypeConverter
+    fun stringToDebtEntryType(value: String?): DebtEntryType? = value?.let { DebtEntryType.valueOf(it) }
 }

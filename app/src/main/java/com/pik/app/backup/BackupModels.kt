@@ -2,6 +2,8 @@ package com.pik.app.backup
 
 import com.pik.app.domain.AccountType
 import com.pik.app.domain.CategoryKind
+import com.pik.app.domain.DebtEntryType
+import com.pik.app.domain.PayoffOrder
 import com.pik.app.domain.TransactionType
 import java.time.LocalDate
 
@@ -51,6 +53,39 @@ data class BackupBudget(
     val createdAt: Long,
 )
 
+data class BackupDebt(
+    val id: Long,
+    val name: String,
+    val startingBalanceCents: Long,
+    val originalAmountCents: Long?,
+    /** Annual rate in basis points: 1250 = 12,50 %. */
+    val aprBasisPoints: Int,
+    val minPaymentCents: Long,
+    val dueDay: Int,
+    val archived: Boolean,
+    val sortOrder: Int,
+    val createdAt: Long,
+)
+
+data class BackupDebtEntry(
+    val id: Long,
+    val debtId: Long,
+    val type: DebtEntryType,
+    /** Signed: positive raises the debt. */
+    val amountCents: Long,
+    val date: LocalDate,
+    val note: String,
+    val createdAt: Long,
+)
+
+/** The DataStore settings that belong to the data (not the one-off flags like onboarding). */
+data class BackupSettings(
+    val monthStartDay: Int,
+    val expectedIncomeCents: Long?,
+    val extraPerMonthCents: Long,
+    val payoffOrder: PayoffOrder,
+)
+
 data class BackupFile(
     val formatVersion: Int,
     val appVersion: String,
@@ -61,6 +96,11 @@ data class BackupFile(
     val transactions: List<BackupTransaction>,
     /** Empty for formatVersion 1 files (they have no budgets). */
     val budgets: List<BackupBudget> = emptyList(),
+    /** Empty for formatVersion 1 and 2 files (they have no debts). */
+    val debts: List<BackupDebt> = emptyList(),
+    val debtEntries: List<BackupDebtEntry> = emptyList(),
+    /** Optional (formatVersion 3 only). null = leave the current settings alone on restore. */
+    val settings: BackupSettings? = null,
 )
 
 enum class BackupError {

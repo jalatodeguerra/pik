@@ -19,15 +19,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -39,7 +37,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -65,7 +62,9 @@ import com.pik.app.domain.DateFormats
 import com.pik.app.domain.Money
 import com.pik.app.domain.RelativeDay
 import com.pik.app.domain.TransactionType
+import com.pik.app.ui.components.IconCircle
 import com.pik.app.ui.components.PikCard
+import com.pik.app.ui.components.PikDatePickerDialog
 import com.pik.app.ui.components.PikPrimaryButton
 import com.pik.app.ui.components.PikSecondaryButton
 import com.pik.app.ui.components.PikSegmented
@@ -73,9 +72,7 @@ import com.pik.app.ui.components.pikTextFieldColors
 import com.pik.app.ui.theme.CategoryStyle
 import com.pik.app.ui.theme.PikColors
 import com.pik.app.ui.theme.PikNumberStyles
-import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneOffset
 
 private const val MAX_NOTE_LENGTH = 120
 
@@ -114,16 +111,20 @@ fun AddTransactionScreen(
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                PikSegmented(
-                    options = listOf(
-                        stringResource(R.string.type_expense),
-                        stringResource(R.string.type_income),
-                        stringResource(R.string.type_transfer),
-                    ),
-                    selectedIndex = typeOptions.indexOf(state.type).coerceAtLeast(0),
-                    onSelect = { viewModel.selectType(typeOptions[it]) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                if (state.isDebtPayment) {
+                    DebtPaymentCard(state.debtName)
+                } else {
+                    PikSegmented(
+                        options = listOf(
+                            stringResource(R.string.type_expense),
+                            stringResource(R.string.type_income),
+                            stringResource(R.string.type_transfer),
+                        ),
+                        selectedIndex = typeOptions.indexOf(state.type).coerceAtLeast(0),
+                        onSelect = { viewModel.selectType(typeOptions[it]) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
 
                 AmountDisplay(state)
 
@@ -141,8 +142,11 @@ fun AddTransactionScreen(
                         AccountChips(state.accounts, state.toAccountId, viewModel::selectToAccount)
                     }
                 } else {
-                    LabeledSection(stringResource(R.string.add_category)) {
-                        CategoryChips(state, viewModel::selectCategory)
+                    // A debt payment has no category: it is shown with its debt instead.
+                    if (!state.isDebtPayment) {
+                        LabeledSection(stringResource(R.string.add_category)) {
+                            CategoryChips(state, viewModel::selectCategory)
+                        }
                     }
                     LabeledSection(stringResource(R.string.add_account)) {
                         AccountChips(state.accounts, state.accountId, viewModel::selectAccount)
@@ -233,7 +237,7 @@ fun AddTransactionScreen(
     }
 
     if (showDatePicker) {
-        AddDatePickerDialog(
+        PikDatePickerDialog(
             initial = state.date,
             onDismiss = { showDatePicker = false },
             onConfirm = {
@@ -272,6 +276,40 @@ private fun AddTopBar(isEditing: Boolean, onClose: () -> Unit, onDelete: () -> U
                     imageVector = Icons.Filled.Delete,
                     contentDescription = stringResource(R.string.action_delete),
                     tint = PikColors.Coral,
+                )
+            }
+        }
+    }
+}
+
+/** Shown instead of the type switch and the category chips when editing a debt payment. */
+@Composable
+private fun DebtPaymentCard(debtName: String?) {
+    PikCard(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            IconCircle(Icons.Filled.AccountBalanceWallet, PikColors.Blue, null)
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.add_debt_payment_for),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = PikColors.TextSecondary,
+                )
+                Text(
+                    text = debtName ?: stringResource(R.string.transaction_debt_payment),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = PikColors.TextPrimary,
+                )
+                Text(
+                    text = stringResource(R.string.add_debt_payment_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = PikColors.TextSecondary,
+                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
         }
@@ -413,42 +451,5 @@ private fun DateRow(date: LocalDate, onClick: () -> Unit) {
                 color = PikColors.TextPrimary,
             )
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun AddDatePickerDialog(
-    initial: LocalDate,
-    onDismiss: () -> Unit,
-    onConfirm: (LocalDate) -> Unit,
-) {
-    // DatePicker works in UTC milliseconds; we only care about the calendar day.
-    val pickerState = rememberDatePickerState(
-        initialSelectedDateMillis = initial.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
-    )
-    DatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val millis = pickerState.selectedDateMillis
-                    if (millis != null) {
-                        onConfirm(Instant.ofEpochMilli(millis).atOffset(ZoneOffset.UTC).toLocalDate())
-                    } else {
-                        onDismiss()
-                    }
-                },
-                colors = ButtonDefaults.textButtonColors(contentColor = PikColors.Lime),
-            ) { Text(stringResource(R.string.action_ok)) }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                colors = ButtonDefaults.textButtonColors(contentColor = PikColors.TextPrimary),
-            ) { Text(stringResource(R.string.action_cancel)) }
-        },
-    ) {
-        DatePicker(state = pickerState)
     }
 }

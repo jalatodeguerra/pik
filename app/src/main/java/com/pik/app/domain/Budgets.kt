@@ -3,8 +3,11 @@ package com.pik.app.domain
 /** A budget row as the domain sees it. [categoryId] null is the overall budget. */
 data class BudgetFact(val categoryId: Long?, val limitCents: Long, val startPeriod: String)
 
-/** Money spent (EXPENSE transactions) in one category in a period. [categoryId] null = uncategorised. */
-data class CategorySpend(val categoryId: Long?, val spentCents: Long)
+/**
+ * Money spent (EXPENSE transactions) in one category in a period. [categoryId] null = uncategorised,
+ * unless [isDebtPayment]: then it is the "Debt payments" bucket (expenses with a debtId and no category).
+ */
+data class CategorySpend(val categoryId: Long?, val spentCents: Long, val isDebtPayment: Boolean = false)
 
 enum class BudgetStatus { OK, WARNING, OVER }
 
@@ -58,20 +61,25 @@ object BudgetCalculator {
         return BudgetProgress(spentCents, limitCents, limitCents - spentCents, fraction, status)
     }
 
-    /** Sums EXPENSE transactions per category. Income, transfers and adjustments are ignored. */
+    /**
+     * Sums EXPENSE transactions per category. Income, transfers and adjustments are ignored.
+     * Debt payments (debtId set) go to their own bucket, separate from "Uncategorised"; they
+     * still count in the overall total.
+     */
     fun spendByCategory(transactions: List<TxFacts>): List<CategorySpend> {
-        val sums = LinkedHashMap<Long?, Long>()
+        val sums = LinkedHashMap<Pair<Long?, Boolean>, Long>()
         for (tx in transactions) {
             if (tx.type != TransactionType.EXPENSE) continue
-            sums[tx.categoryId] = (sums[tx.categoryId] ?: 0L) + tx.amountCents
+            val key = if (tx.debtId != null) null to true else tx.categoryId to false
+            sums[key] = (sums[key] ?: 0L) + tx.amountCents
         }
-        return sums.map { CategorySpend(it.key, it.value) }
+        return sums.map { CategorySpend(it.key.first, it.value, it.key.second) }
     }
 
     /** [limits] comes from [effectiveLimits]; the overall budget is the entry with a null key. */
     fun overview(limits: Map<Long?, Long>, spend: List<CategorySpend>): BudgetOverview {
         val totalSpent = spend.sumOf { it.spentCents }
-        val spentById = spend.associate { it.categoryId to it.spentCents }
+        val spentById = spend.filter { !it.isDebtPayment }.associate { it.categoryId to it.spentCents }
         val overall = limits[null]?.let { progress(totalSpent, it) }
         val lines = limits.entries
             .filter { it.key != null }
@@ -79,7 +87,7 @@ object BudgetCalculator {
             .sortedWith(compareByDescending<BudgetLine> { it.progress.spentCents * 1000 / it.progress.limitCents }
                 .thenBy { it.categoryId })
         val notBudgeted = spend
-            .filter { it.spentCents > 0 && (it.categoryId == null || it.categoryId !in limits) }
+            .filter { it.spentCents > 0 && (it.isDebtPayment || it.categoryId == null || it.categoryId !in limits) }
             .sortedByDescending { it.spentCents }
         return BudgetOverview(overall, lines, notBudgeted)
     }

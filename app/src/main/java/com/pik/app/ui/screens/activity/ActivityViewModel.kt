@@ -64,7 +64,7 @@ class ActivityViewModel @Inject constructor(
                 val filtered = rows.filter { row ->
                     ActivityFilter.matchesType(type, row.type) &&
                         ActivityFilter.matchesAccount(account, row.accountId, row.toAccountId) &&
-                        ActivityFilter.matchesQuery(q, row.note, row.categoryName, row.accountName, row.toAccountName)
+                        ActivityFilter.matchesQuery(q, row.note, row.categoryName, row.accountName, row.toAccountName, row.debtName)
                 }
                 ActivityUiState(
                     month = month,

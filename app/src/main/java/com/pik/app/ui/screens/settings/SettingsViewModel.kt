@@ -39,6 +39,7 @@ data class PendingRestore(val file: BackupFile) {
     val accountCount: Int get() = file.accounts.size
     val categoryCount: Int get() = file.categories.size
     val transactionCount: Int get() = file.transactions.size
+    val debtCount: Int get() = file.debts.size
 }
 
 enum class SettingsMessage {

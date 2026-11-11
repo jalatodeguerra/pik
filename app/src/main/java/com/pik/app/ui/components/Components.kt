@@ -1,6 +1,7 @@
 package com.pik.app.ui.components
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
@@ -27,6 +29,7 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -41,6 +44,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pik.app.R
@@ -228,9 +232,12 @@ fun TransactionListItem(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
 ) {
-    val title = when (row.type) {
-        TransactionType.TRANSFER -> stringResource(R.string.transaction_transfer)
-        TransactionType.ADJUSTMENT -> stringResource(R.string.transaction_adjustment)
+    val isDebtPayment = row.type == TransactionType.EXPENSE && row.debtId != null
+    val title = when {
+        isDebtPayment -> row.debtName?.let { stringResource(R.string.transaction_debt_payment_named, it) }
+            ?: stringResource(R.string.transaction_debt_payment)
+        row.type == TransactionType.TRANSFER -> stringResource(R.string.transaction_transfer)
+        row.type == TransactionType.ADJUSTMENT -> stringResource(R.string.transaction_adjustment)
         else -> row.categoryName ?: stringResource(R.string.transaction_uncategorized)
     }
     val accountText = if (row.type == TransactionType.TRANSFER) {
@@ -260,9 +267,10 @@ fun TransactionListItem(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        when (row.type) {
-            TransactionType.TRANSFER -> IconCircle(Icons.Filled.SwapHoriz, PikColors.TextSecondary, null)
-            TransactionType.ADJUSTMENT -> IconCircle(Icons.Filled.Tune, PikColors.TextSecondary, null)
+        when {
+            isDebtPayment -> IconCircle(Icons.Filled.AccountBalanceWallet, PikColors.Blue, null)
+            row.type == TransactionType.TRANSFER -> IconCircle(Icons.Filled.SwapHoriz, PikColors.TextSecondary, null)
+            row.type == TransactionType.ADJUSTMENT -> IconCircle(Icons.Filled.Tune, PikColors.TextSecondary, null)
             else -> IconCircle(
                 icon = CategoryStyle.icon(row.categoryIconKey),
                 tint = CategoryStyle.color(row.categoryColorKey),
@@ -360,4 +368,45 @@ fun PikProgressBar(fraction: Float, color: Color, modifier: Modifier = Modifier)
                 .background(color),
         )
     }
+}
+
+/** Money input with the euro suffix and explicit colors. [isError] marks an invalid, non-empty text. */
+@Composable
+fun PikMoneyField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    placeholder: String = "0,00",
+    isError: Boolean = false,
+    supportingText: String? = null,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = { onValueChange(it.take(MAX_MONEY_TEXT_LENGTH)) },
+        modifier = modifier.fillMaxWidth(),
+        label = { Text(label) },
+        placeholder = { Text(placeholder) },
+        suffix = { Text(Money.CURRENCY_SYMBOL) },
+        isError = isError,
+        supportingText = if (supportingText != null) {
+            { Text(supportingText) }
+        } else {
+            null
+        },
+        singleLine = true,
+        shape = RoundedCornerShape(16.dp),
+        colors = pikTextFieldColors(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+    )
+}
+
+private const val MAX_MONEY_TEXT_LENGTH = 20
+
+/** "1 month", "14 months" or "1 y 3 m" from 24 months on. */
+@Composable
+fun durationText(months: Int): String = when {
+    months >= 24 -> stringResource(R.string.duration_year_months, months / 12, months % 12)
+    months == 1 -> stringResource(R.string.duration_month, months)
+    else -> stringResource(R.string.duration_months, months)
 }

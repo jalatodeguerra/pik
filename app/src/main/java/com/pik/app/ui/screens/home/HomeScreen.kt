@@ -55,6 +55,7 @@ fun HomeScreen(
     onTransactionClick: (Long) -> Unit,
     onSettingsClick: () -> Unit,
     onPlanClick: () -> Unit,
+    onDebtsClick: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -63,7 +64,10 @@ fun HomeScreen(
         viewModel.refreshMonth()
         onPauseOrDispose { }
     }
-    HomeContent(state, onAddClick, onSeeAll, onTransactionClick, onSettingsClick, onPlanClick, viewModel::checkBalance)
+    HomeContent(
+        state, onAddClick, onSeeAll, onTransactionClick, onSettingsClick, onPlanClick, onDebtsClick,
+        viewModel::checkBalance,
+    )
 }
 
 @Composable
@@ -74,6 +78,7 @@ private fun HomeContent(
     onTransactionClick: (Long) -> Unit,
     onSettingsClick: () -> Unit,
     onPlanClick: () -> Unit,
+    onDebtsClick: () -> Unit,
     onCheckBalance: (accountId: Long, realCents: Long, note: String) -> Unit,
 ) {
     val periodLabel = state.period.label()
@@ -147,7 +152,7 @@ private fun HomeContent(
             }
         }
         item {
-            PikCard(modifier = Modifier.fillMaxWidth(), color = PikColors.Surface) {
+            PikCard(modifier = Modifier.fillMaxWidth(), color = PikColors.Surface, onClick = onDebtsClick) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -162,15 +167,19 @@ private fun HomeContent(
                             color = PikColors.TextSecondary,
                         )
                         Text(
-                            text = stringResource(R.string.home_you_owe_hint),
+                            text = stringResource(
+                                if (state.debtCount > 0) R.string.home_you_owe_hint else R.string.home_you_owe_hint_empty,
+                            ),
                             style = MaterialTheme.typography.bodySmall,
                             color = PikColors.TextSecondary,
                         )
                     }
                     Text(
-                        text = Money.format(0),
+                        text = Money.format(state.owedCents),
                         style = PikNumberStyles.Large,
                         color = PikColors.Blue,
+                        maxLines = 1,
+                        modifier = Modifier.padding(start = 12.dp),
                     )
                 }
             }

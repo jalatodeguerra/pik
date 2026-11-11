@@ -7,7 +7,9 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.pik.app.domain.PayoffOrder
 import com.pik.app.domain.Period
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -52,6 +54,38 @@ class PikPreferences @Inject constructor(
         }
     }
 
+    /** Extra money per month (cents) that goes to debts on top of the minimums. Default 0. */
+    val extraPerMonthCents: Flow<Long> = store.data.map { (it[KEY_EXTRA_PER_MONTH_CENTS] ?: 0L).coerceAtLeast(0L) }
+
+    /** Which debt gets the extra money first. Default: highest interest. */
+    val payoffOrder: Flow<PayoffOrder> = store.data.map { prefs ->
+        prefs[KEY_PAYOFF_ORDER]?.let { name -> PayoffOrder.entries.firstOrNull { it.name == name } }
+            ?: PayoffOrder.HIGHEST_INTEREST
+    }
+
+    suspend fun setExtraPerMonthCents(cents: Long) {
+        store.edit { it[KEY_EXTRA_PER_MONTH_CENTS] = cents.coerceAtLeast(0L) }
+    }
+
+    suspend fun setPayoffOrder(order: PayoffOrder) {
+        store.edit { it[KEY_PAYOFF_ORDER] = order.name }
+    }
+
+    /** Writes all plan settings at once (backup restore). */
+    suspend fun restorePlanSettings(
+        monthStartDay: Int,
+        expectedIncomeCents: Long?,
+        extraPerMonthCents: Long,
+        payoffOrder: PayoffOrder,
+    ) {
+        store.edit {
+            it[KEY_MONTH_START_DAY] = Period.clampStartDay(monthStartDay)
+            if (expectedIncomeCents == null) it.remove(KEY_EXPECTED_INCOME_CENTS) else it[KEY_EXPECTED_INCOME_CENTS] = expectedIncomeCents
+            it[KEY_EXTRA_PER_MONTH_CENTS] = extraPerMonthCents.coerceAtLeast(0L)
+            it[KEY_PAYOFF_ORDER] = payoffOrder.name
+        }
+    }
+
     suspend fun setOnboardingComplete(value: Boolean) {
         store.edit { it[KEY_ONBOARDING_COMPLETE] = value }
     }
@@ -66,5 +100,7 @@ class PikPreferences @Inject constructor(
         val KEY_LAST_BACKUP_EPOCH_DAY = longPreferencesKey("lastBackupEpochDay")
         val KEY_MONTH_START_DAY = intPreferencesKey("monthStartDay")
         val KEY_EXPECTED_INCOME_CENTS = longPreferencesKey("expectedIncomeCents")
+        val KEY_EXTRA_PER_MONTH_CENTS = longPreferencesKey("extraPerMonthCents")
+        val KEY_PAYOFF_ORDER = stringPreferencesKey("payoffOrder")
     }
 }

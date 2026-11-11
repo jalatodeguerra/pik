@@ -9,6 +9,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -28,6 +32,9 @@ import com.pik.app.R
 import com.pik.app.domain.BalanceCheck
 import com.pik.app.domain.Money
 import com.pik.app.ui.theme.PikColors
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 
 /** AlertDialog with explicit colors on every part. [content] is scrollable. */
 @Composable
@@ -154,5 +161,42 @@ fun CheckBalanceDialog(
             color = color,
             modifier = Modifier.padding(top = 4.dp),
         )
+    }
+}
+
+/** Calendar day picker. The picker works in UTC milliseconds; only the calendar day matters. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PikDatePickerDialog(
+    initial: LocalDate,
+    onDismiss: () -> Unit,
+    onConfirm: (LocalDate) -> Unit,
+) {
+    val pickerState = rememberDatePickerState(
+        initialSelectedDateMillis = initial.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+    )
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val millis = pickerState.selectedDateMillis
+                    if (millis != null) {
+                        onConfirm(Instant.ofEpochMilli(millis).atOffset(ZoneOffset.UTC).toLocalDate())
+                    } else {
+                        onDismiss()
+                    }
+                },
+                colors = ButtonDefaults.textButtonColors(contentColor = PikColors.Lime),
+            ) { Text(stringResource(R.string.action_ok)) }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                colors = ButtonDefaults.textButtonColors(contentColor = PikColors.TextPrimary),
+            ) { Text(stringResource(R.string.action_cancel)) }
+        },
+    ) {
+        DatePicker(state = pickerState)
     }
 }

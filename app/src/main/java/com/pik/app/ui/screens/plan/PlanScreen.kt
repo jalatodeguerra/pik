@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -213,6 +214,14 @@ private fun SafeToSpendCard(safe: SafeToSpend) {
                 color = PikColors.TextPrimary,
                 modifier = Modifier.padding(top = 4.dp),
             )
+            if (safe.debtPaymentsDueCents > 0L) {
+                Text(
+                    text = stringResource(R.string.safe_debts_set_aside, Money.format(safe.debtPaymentsDueCents)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = PikColors.Blue,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
             if (safe.plannedIncomeCents > 0L) {
                 val fraction = (safe.spentCents.toDouble() / safe.plannedIncomeCents).toFloat()
                 PikProgressBar(
@@ -366,14 +375,26 @@ private fun NotBudgetedRow(item: PlanNotBudgeted) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        IconCircle(
-            icon = CategoryStyle.icon(item.iconKey),
-            tint = CategoryStyle.color(item.colorKey),
-            contentDescription = null,
-            size = 36,
-        )
+        if (item.isDebtPayment) {
+            IconCircle(
+                icon = Icons.Filled.AccountBalanceWallet,
+                tint = PikColors.Blue,
+                contentDescription = null,
+                size = 36,
+            )
+        } else {
+            IconCircle(
+                icon = CategoryStyle.icon(item.iconKey),
+                tint = CategoryStyle.color(item.colorKey),
+                contentDescription = null,
+                size = 36,
+            )
+        }
         Text(
-            text = item.name ?: stringResource(R.string.transaction_uncategorized),
+            text = when {
+                item.isDebtPayment -> stringResource(R.string.plan_debt_payments)
+                else -> item.name ?: stringResource(R.string.transaction_uncategorized)
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = PikColors.TextPrimary,
             maxLines = 1,

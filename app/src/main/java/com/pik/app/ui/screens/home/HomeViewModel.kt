@@ -6,8 +6,10 @@ import com.pik.app.data.db.AccountEntity
 import com.pik.app.data.db.TransactionRow
 import com.pik.app.data.prefs.PikPreferences
 import com.pik.app.data.repo.AccountRepository
+import com.pik.app.data.repo.DebtRepository
 import com.pik.app.data.repo.TransactionRepository
 import com.pik.app.domain.BalanceCalculator
+import com.pik.app.domain.DebtPaymentsDue
 import com.pik.app.domain.Period
 import com.pik.app.domain.SafeToSpend
 import com.pik.app.domain.SafeToSpendCalculator
@@ -39,6 +41,15 @@ data class HomeUiState(
     val safeToSpend: SafeToSpend = SafeToSpendCalculator.compute(null, 0, 0, 1),
     val recent: List<TransactionRow> = emptyList(),
     val hasTransactions: Boolean = false,
+    /** What you still owe: total remaining of the non-archived debts. Never mixed with [totalCents]. */
+    val owedCents: Long = 0,
+    val debtCount: Int = 0,
+)
+
+/** Debt figures Home needs: the open debts and the extra-per-month setting. */
+private data class DebtInfo(
+    val inputs: List<DebtPaymentsDue.Input>,
+    val extraPerMonthCents: Long,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -46,6 +57,7 @@ data class HomeUiState(
 class HomeViewModel @Inject constructor(
     accountRepository: AccountRepository,
     private val transactionRepository: TransactionRepository,
+    debtRepository: DebtRepository,
     prefs: PikPreferences,
 ) : ViewModel() {
 
@@ -60,6 +72,14 @@ class HomeViewModel @Inject constructor(
 
     private data class Settings(val today: LocalDate, val startDay: Int, val expectedIncomeCents: Long?)
 
+    private val debtInfo = combine(debtRepository.observeDebts(), prefs.extraPerMonthCents) { debts, extra ->
+        val open = debts.filter { !it.debt.archived }
+        DebtInfo(
+            inputs = open.map { DebtPaymentsDue.Input(it.debt.id, it.remainingCents, it.debt.minPaymentCents) },
+            extraPerMonthCents = extra,
+        )
+    }
+
     val state: StateFlow<HomeUiState> = combine(
         todayFlow,
         prefs.monthStartDay,
@@ -68,16 +88,18 @@ class HomeViewModel @Inject constructor(
         .flatMapLatest { settings ->
             val period = Period.containing(settings.today, settings.startDay)
             combine(
-                accountRepository.observeAccounts(),
-                accountRepository.observeBalances(),
+                combine(accountRepository.observeAccounts(), accountRepository.observeBalances()) { a, b -> a to b },
                 transactionRepository.observeRange(period.start, period.endInclusive),
                 transactionRepository.observeRecent(RECENT_COUNT),
                 transactionRepository.observeCount(),
-            ) { accounts, balances, periodRows, recent, count ->
+                debtInfo,
+            ) { accountsAndBalances, periodRows, recent, count, debts ->
+                val (accounts, balances) = accountsAndBalances
                 val withBalance = accounts.map { AccountWithBalance(it, balances[it.id] ?: it.startingBalanceCents) }
-                val totals = BalanceCalculator.monthTotals(
-                    periodRows.map { TxFacts(it.type, it.amountCents, it.accountId, it.toAccountId) },
-                )
+                val facts = periodRows.map {
+                    TxFacts(it.type, it.amountCents, it.accountId, it.toAccountId, it.categoryId, it.debtId)
+                }
+                val totals = BalanceCalculator.monthTotals(facts)
                 HomeUiState(
                     period = period,
                     isLoading = false,
@@ -90,9 +112,12 @@ class HomeViewModel @Inject constructor(
                         incomeReceivedCents = totals.incomeCents,
                         spentCents = totals.expenseCents,
                         daysLeft = period.daysLeft(settings.today),
+                        debtPaymentsDueCents = DebtPaymentsDue.compute(debts.inputs, facts, debts.extraPerMonthCents),
                     ),
                     recent = recent,
                     hasTransactions = count > 0,
+                    owedCents = debts.inputs.sumOf { it.remainingCents },
+                    debtCount = debts.inputs.count { it.remainingCents > 0 },
                 )
             }
         }

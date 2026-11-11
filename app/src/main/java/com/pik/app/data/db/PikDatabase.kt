@@ -5,8 +5,10 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
 @Database(
-    entities = [AccountEntity::class, CategoryEntity::class, TransactionEntity::class, BudgetEntity::class],
-    version = 2,
+    entities = [AccountEntity::class, CategoryEntity::class, TransactionEntity::class, BudgetEntity::class,
+        DebtEntity::class, DebtEntryEntity::class,
+    ],
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -15,6 +17,7 @@ abstract class PikDatabase : RoomDatabase() {
     abstract fun categoryDao(): CategoryDao
     abstract fun transactionDao(): TransactionDao
     abstract fun budgetDao(): BudgetDao
+    abstract fun debtDao(): DebtDao
 
     companion object {
         const val NAME = "pik.db"

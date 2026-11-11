@@ -6,8 +6,9 @@ Everything stays on your phone. There is no account, no server and no internet p
 Milestone 2 completed "track spending": first-run setup, accounts (cash and bank), adding /
 editing expenses, income and transfers, an activity list by month with search and filters, a home
 screen with balances, a Settings screen (accounts, categories, backup, about), balance checks and
-backup files. Milestone 3 (this version) adds the Plan tab: payday month, budgets and "safe to
-spend". Debts is still a placeholder for the next update.
+backup files. Milestone 3 added the Plan tab: payday month, budgets and "safe to spend". Milestone 4
+(this version) adds debts: a Debts tab with a payoff plan, debt payments, interest and fee entries, a
+"What if I pay more?" slider, and backup format 3.
 
 ## Features
 
@@ -32,9 +33,73 @@ spend". Debts is still a placeholder for the next update.
   limit. Past periods show totals and the budgets that applied then. "Set budgets" opens the budget
   editor.
 - **Home** shows a "Safe to spend" card (tap to open Plan). "You have" (cash and bank) and
-  "You owe" (debts, later) stay separate.
+  "You owe" (the total remaining of your debts, tap to open the Debts tab) stay separate and are never
+  added together.
+- **Debts tab**: a paid-off ring, the total you still owe, the debt-free month and the interest still
+  to pay, the payoff order (highest interest or smallest balance, with months and interest for each), a
+  "What if I pay more?" slider and the list of debts. See "Debts" below.
 - **App shortcut**: long-press the Pik icon and choose "Add expense" to open the Add screen
   directly (only after first-run setup).
+
+## Debts
+
+### Schema version 3
+
+Two tables are added by `MIGRATION_2_3` (existing tables are untouched):
+
+- `debts`: `id`, `name`, `startingBalanceCents` (what you owed when you added it), `originalAmountCents`
+  (optional, the size of an old loan, for "% paid off"), `aprBasisPoints` (1250 = 12,50 %),
+  `minPaymentCents`, `dueDay` (1-28), `archived`, `sortOrder`, `createdAt`.
+- `debt_entries`: `id`, `debtId` (foreign key to `debts`, ON DELETE CASCADE, indexed), `type`
+  (`INTEREST`, `FEE` or `ADJUSTMENT`), `amountCents` (signed: positive raises the debt, negative lowers
+  it), `date` (calendar day), `note`, `createdAt`.
+
+`transactions.debtId` already existed and has **no** foreign key (adding one needs a table rebuild).
+Instead a debt that has payments cannot be deleted (archive it); a debt without payments can be
+deleted and takes its entries with it.
+
+### Balance rules
+
+```
+remaining = startingBalance + sum(entries) - sum(EXPENSE transactions with this debtId)
+```
+
+Never stored. Shown as 0 with "Paid off" when negative. Interest is stored as entries (what the lender
+really charged), not recomputed from the rate over history. Balances drift from the bank, so every
+debt has **Check balance**: type what the bank says, and Pik adds an `ADJUSTMENT` entry for the
+difference (or says "Already matches").
+
+### Debt payments
+
+A debt payment is an `EXPENSE` transaction from an account with `debtId` set and no category. It
+counts as spending (Home, Plan, the overall budget, safe to spend) **and** lowers the debt. It is
+started from the debt ("Log payment": amount prefilled with the minimum, account defaults to the last
+used one, date), not from the Add screen. In Activity and Home it shows as "Debt payment · <debt name>"
+with the blue debt icon. Editing it in the Add screen keeps its debt (the category chips are replaced by
+the debt name). The debt page lists payments and entries together, newest first; tapping an entry asks to
+delete it, tapping a payment opens it for editing or deleting.
+
+### Payoff simulation
+
+`PayoffSimulator` in `domain/PayoffSimulator.kt` is pure Kotlin. The first simulated month is the
+current month. Each month:
+
+1. interest is added to every open debt: `balance x apr / 12`, rounded half up to the cent;
+2. every minimum payment is paid (capped at the balance);
+3. the **pool** (the extra per month, plus the minimums of debts that are already paid off, plus any part
+   of a minimum that was not needed) goes to the target debt and cascades to the next one in the same
+   month. This is the snowball roll-over: a cleared debt's payment is never lost.
+
+The target order is fixed from the starting balances: highest interest first, or smallest balance first
+(ties by id). The result has the debt-free month, number of months, total interest and the payoff month of
+each debt. `neverPaysOff` is true when a month ends without the total balance going down (the payment does
+not cover the interest, and it never will) or after 600 months (50 years). `compareOrders` gives both
+orders; `whatIf(extra)` simulates another extra amount and reports the months and interest saved compared
+with no extra payment at all.
+
+The extra per month and the payoff order are stored in DataStore (`extraPerMonthCents`, `payoffOrder`) and
+saved with "Use this" under the slider and the segmented control on the Debts tab. The slider goes from 0
+to 500 euros in 5 euro steps (higher if the saved value is higher).
 
 ## Payday month (period)
 
@@ -63,7 +128,9 @@ foreign key to `categories` with ON DELETE CASCADE), `limitCents`, `startPeriod`
   and updates instead of inserting a duplicate).
 - Progress bar colors: lime, amber from 80 percent of the limit, coral when over. Spending counts
   EXPENSE transactions only (transfers, income and adjustments are excluded). The overall budget
-  compares against all expenses, including uncategorised ones.
+  compares against all expenses, including uncategorised ones and debt payments.
+- In "Not budgeted", expenses that pay a debt are their own line, "Debt payments" (blue debt icon),
+  separate from "Uncategorised".
 - The editor lists non-archived expense categories. A budget on a category that is archived later
   stays in force and is still shown on Plan.
 
@@ -77,16 +144,35 @@ safeToSpend   = plannedIncome - spentSoFar - billsStillDue - debtPaymentsDue
 perDay        = safeToSpend / days left in the period (today included); 0 when safeToSpend <= 0
 ```
 
-`spentSoFar` is the EXPENSE total of the period (transfers and adjustments excluded). Bills still
-due and debt payments due are parameters that are 0 for now; later milestones fill them in. When
-`safeToSpend` is negative the screens show an over-spent state. "Expected monthly income" is
-optional (Settings -> Plan); when it is not set, planned income is the income received.
-Only the current period shows safe to spend.
+`spentSoFar` is the EXPENSE total of the period (transfers and adjustments excluded). Debt payments
+are expenses, so what you already paid to debts is inside `spentSoFar`. `billsStillDue` is 0 until
+recurring transactions exist (next milestone). When `safeToSpend` is negative the screens show an
+over-spent state. "Expected monthly income" is optional (Settings -> Plan); when it is not set,
+planned income is the income received. Only the current period shows safe to spend.
+
+### debtPaymentsDue
+
+`DebtPaymentsDue` in `domain/SafeToSpend.kt` (unit tested). For every non-archived debt with
+`remaining > 0` and the debt payments already logged to it in the current period (`paid`):
+
+```
+minDue   = min( max(0, minPayment - paid), remaining )
+extraDue = if extraPerMonth > 0:
+               min( max(0, extraPerMonth - sum(max(0, paid - minPayment))), remaining still owed after the minimums )
+           else 0
+debtPaymentsDue = sum(minDue) + extraDue
+```
+
+So the money promised to debts is taken off safe to spend once, and when you log a payment it moves
+from "still due" to "spent" instead of being subtracted twice. Paying more than the minimum eats into
+the extra first. The two `min(..., remaining)` caps are an addition to the plain formula: nothing
+more is reserved than what is still owed. Plan shows "X still to pay on debts is already set aside"
+when the figure is above 0.
 
 ## Stack
 
 - Kotlin 2.1.21, Jetpack Compose (Material 3, BOM 2025.05.01), dark theme only
-- Room 2.7.1 (schema exported to `app/schemas`, now at version 2), DataStore Preferences
+- Room 2.7.1 (schema exported to `app/schemas`, now at version 3), DataStore Preferences
 - Hilt for dependency injection, Navigation Compose
 - Fonts: Outfit (headings, numbers) and Inter (body), both under the SIL OFL (see `licenses/`)
 - minSdk 26, target/compile SDK 35, Gradle 8.14.3, AGP 8.10.1
@@ -116,9 +202,10 @@ app/src/main/java/com/pik/app/
   data/db       Room entities, DAOs, converters, PikDatabase
   data/repo     repositories (the only thing ViewModels talk to)
   data/prefs    DataStore preferences (onboardingComplete, lastUsedAccountId, lastBackupEpochDay,
-                monthStartDay, expectedIncomeCents)
+                monthStartDay, expectedIncomeCents, extraPerMonthCents, payoffOrder)
   domain        pure Kotlin, no Android: Money, AmountInput (keypad), BalanceCalculator, BalanceCheck,
-                ActivityFilter, DateFormats, Period, BudgetCalculator, SafeToSpendCalculator
+                ActivityFilter, DateFormats, Period, BudgetCalculator, SafeToSpendCalculator,
+                DebtCalculator / DebtPaymentsDue, PayoffSimulator, Apr
   backup        backup file model and JSON (de)serialization with validation (org.json only)
   di            Hilt modules
   ui/theme      colors, fonts, category colors and icons
@@ -139,15 +226,18 @@ Layers: Compose screens -> ViewModels (one `StateFlow` UI state per screen) -> r
   It is not a timestamp. Only `createdAt` / `updatedAt` are epoch milliseconds.
 - Account balance is calculated, never stored:
   starting balance + income - expense - transfers out + transfers in + adjustments.
-- Debt payments will count as spending (later milestone); `debtId` is already reserved.
+- A debt payment is an expense with a `debtId`; it counts as spending and lowers the debt.
 
 ## Database migrations
 
 The database holds real data, so `fallbackToDestructiveMigration` is never used. Version 2 adds the
 `budgets` table through `MIGRATION_1_2` (`data/db/Migrations.kt`), registered in `DatabaseModule`;
-existing tables are untouched. `MigrationTest` (instrumented) creates a version 1 database with an
-account, a category and a transaction, migrates it and checks that the rows survived and that
-`budgets` exists. Every future schema change needs a migration and a test like this.
+existing tables are untouched. Version 3 adds `debts` and `debt_entries` through `MIGRATION_2_3`, also
+registered in `DatabaseModule`. `MigrationTest` (instrumented) creates a version 1 database (and a version 2
+one) with an account, a category and a transaction, migrates it (1 -> 3 and 2 -> 3) and checks that the
+rows survived and that the new tables exist and accept rows. Every future schema change needs a migration
+and a test like this. After changing an entity, build once so Room writes the new `app/schemas/.../N.json`
+and commit it: the migration tests read it.
 
 ## Backup
 
@@ -158,20 +248,27 @@ with the Android file picker (Storage Access Framework: no storage permission ne
 plain, readable file you can keep in your cloud storage or email to yourself:
 
 ```
-{ "formatVersion": 2, "appVersion": "0.2.0", "exportedAt": "2026-11-10T09:30:00Z",
-  "accounts": [...], "categories": [...], "transactions": [...], "budgets": [...] }
+{ "formatVersion": 3, "appVersion": "0.3.0", "exportedAt": "2026-11-10T09:30:00Z",
+  "accounts": [...], "categories": [...], "transactions": [...], "budgets": [...],
+  "debts": [...], "debtEntries": [...],
+  "settings": { "monthStartDay": 27, "expectedIncomeCents": 250000,
+                "extraPerMonthCents": 5000, "payoffOrder": "HIGHEST_INTEREST" } }
 ```
 
-`formatVersion` 2 added `budgets`. Restore still accepts `formatVersion` 1 files (no budgets); the
-restored database then has no budgets. A budget must point to an existing category (or have a null
-category for the overall budget), have a non-negative limit, a `yyyy-MM` start period and be unique
-per category and start period. The two Plan settings (month start day, expected income) live in
-DataStore, not in the backup file; Android Auto Backup restores them with the app data.
+`formatVersion` 2 added `budgets`, 3 added `debts`, `debtEntries` and the optional `settings` object.
+Restore still accepts `formatVersion` 1 and 2 files (the restored database then has no budgets and/or no
+debts, and a stray `debtId` in an old file is dropped). A budget must point to an existing category (or have
+a null category for the overall budget), have a non-negative limit, a `yyyy-MM` start period and be unique
+per category and start period. A debt entry must point to a debt in the file, a transaction with a `debtId`
+must point to a debt in the file, debts need a due day 1-28, a rate of 0-100 % and non-negative amounts.
+`settings` (month start day, expected income, extra per month, payoff order) are DataStore values: they are
+written to the file on save and, when the file has them, restored after the database. A file without
+`settings` leaves the current ones alone.
 
 Every column of every row is included, money is integer cents and dates are ISO `yyyy-MM-dd`.
 "Restore from file" validates the file first (format version, ids, and that every transaction
-points to an existing account / category) and shows how many accounts, categories and transactions
-it holds. After you confirm ("This replaces everything in Pik with the backup") the database is
+points to an existing account / category / debt) and shows how many accounts, categories, transactions
+and debts it holds. After you confirm ("This replaces everything in Pik with the backup") the database is
 emptied and refilled with the original ids in a single Room transaction, so a failure changes
 nothing. The date of the last saved file is shown under Backup ("Last saved: 10 Nov 2026").
 

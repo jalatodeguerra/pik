@@ -24,3 +24,39 @@ val MIGRATION_1_2: Migration = object : Migration(1, 2) {
         )
     }
 }
+
+/**
+ * Version 2 -> 3: adds the debts and debt_entries tables (and the index on debt_entries.debtId).
+ * Existing tables are untouched; transactions.debtId already exists (no foreign key).
+ * The SQL must match what Room generates for [DebtEntity] and [DebtEntryEntity]
+ * (see app/schemas/.../3.json).
+ */
+val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `debts` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`name` TEXT NOT NULL, " +
+                "`startingBalanceCents` INTEGER NOT NULL, " +
+                "`originalAmountCents` INTEGER, " +
+                "`aprBasisPoints` INTEGER NOT NULL, " +
+                "`minPaymentCents` INTEGER NOT NULL, " +
+                "`dueDay` INTEGER NOT NULL, " +
+                "`archived` INTEGER NOT NULL, " +
+                "`sortOrder` INTEGER NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL)",
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `debt_entries` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`debtId` INTEGER NOT NULL, " +
+                "`type` TEXT NOT NULL, " +
+                "`amountCents` INTEGER NOT NULL, " +
+                "`date` INTEGER NOT NULL, " +
+                "`note` TEXT NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL, " +
+                "FOREIGN KEY(`debtId`) REFERENCES `debts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_debt_entries_debtId` ON `debt_entries` (`debtId`)")
+    }
+}

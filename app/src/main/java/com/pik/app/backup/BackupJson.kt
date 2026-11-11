@@ -1,7 +1,11 @@
 package com.pik.app.backup
 
 import com.pik.app.domain.AccountType
+import com.pik.app.domain.Apr
 import com.pik.app.domain.CategoryKind
+import com.pik.app.domain.DebtEntryType
+import com.pik.app.domain.PayoffOrder
+import com.pik.app.domain.Period
 import com.pik.app.domain.TransactionType
 import org.json.JSONArray
 import org.json.JSONObject
@@ -10,10 +14,11 @@ import java.time.LocalDate
 /**
  * Backup file format: one JSON object with the header fields and one array per table holding
  * every column of every row. Dates are ISO yyyy-MM-dd, money is integer cents.
- * formatVersion 2 added the "budgets" array; version 1 files (no budgets) can still be read.
+ * formatVersion 2 added the "budgets" array; formatVersion 3 added the "debts" and "debtEntries"
+ * arrays and the optional "settings" object. Version 1 and 2 files can still be read.
  */
 object BackupJson {
-    const val FORMAT_VERSION = 2
+    const val FORMAT_VERSION = 3
     private const val OLDEST_SUPPORTED_VERSION = 1
     private val PERIOD_KEY = Regex("""\d{4}-(0[1-9]|1[0-2])""")
 
@@ -30,6 +35,14 @@ object BackupJson {
         )
         if (file.formatVersion >= 2) {
             root.put("budgets", JSONArray().also { arr -> file.budgets.forEach { arr.put(budgetToJson(it)) } })
+        }
+        if (file.formatVersion >= 3) {
+            root.put("debts", JSONArray().also { arr -> file.debts.forEach { arr.put(debtToJson(it)) } })
+            root.put(
+                "debtEntries",
+                JSONArray().also { arr -> file.debtEntries.forEach { arr.put(debtEntryToJson(it)) } },
+            )
+            file.settings?.let { root.put("settings", settingsToJson(it)) }
         }
         return root.toString(2)
     }
@@ -62,12 +75,30 @@ object BackupJson {
                 categories = root.getJSONArray("categories").mapObjects(::categoryFromJson),
                 transactions = root.getJSONArray("transactions").mapObjects(::transactionFromJson),
                 budgets = if (version >= 2) root.getJSONArray("budgets").mapObjects(::budgetFromJson) else emptyList(),
+                debts = if (version >= 3) root.getJSONArray("debts").mapObjects(::debtFromJson) else emptyList(),
+                debtEntries = if (version >= 3) {
+                    root.getJSONArray("debtEntries").mapObjects(::debtEntryFromJson)
+                } else {
+                    emptyList()
+                },
+                settings = if (version >= 3 && root.has("settings") && !root.isNull("settings")) {
+                    settingsFromJson(root.getJSONObject("settings"))
+                } else {
+                    null
+                },
             )
         } catch (e: Exception) {
             throw BackupFormatException(BackupError.INVALID_DATA)
         }
-        validate(file)
-        return file
+        // Before version 3 nothing could point to a debt (there were no debts), so a stray debtId
+        // in an old file is dropped instead of leaving a dangling reference.
+        val clean = if (version < 3) {
+            file.copy(transactions = file.transactions.map { if (it.debtId != null) it.copy(debtId = null) else it })
+        } else {
+            file
+        }
+        validate(clean)
+        return clean
     }
 
     /** Checks ids and references so a restore can never violate a foreign key. */
@@ -78,6 +109,9 @@ object BackupJson {
             throw BackupFormatException(BackupError.UNSUPPORTED_VERSION)
         }
         if (file.formatVersion < 2 && file.budgets.isNotEmpty()) invalid()
+        if (file.formatVersion < 3 && (file.debts.isNotEmpty() || file.debtEntries.isNotEmpty() || file.settings != null)) {
+            invalid()
+        }
         if (file.accounts.isEmpty()) invalid()
         val accountIds = file.accounts.map { it.id }
         val categoryIds = file.categories.map { it.id }
@@ -88,7 +122,26 @@ object BackupJson {
         if (transactionIds.toSet().size != transactionIds.size) invalid()
         val accountSet = accountIds.toSet()
         val categorySet = categoryIds.toSet()
+        val debtIds = file.debts.map { it.id }
+        if (debtIds.any { it <= 0 } || debtIds.toSet().size != debtIds.size) invalid()
+        val debtSet = debtIds.toSet()
+        for (debt in file.debts) {
+            if (debt.startingBalanceCents < 0) invalid()
+            if (debt.originalAmountCents != null && debt.originalAmountCents < 0) invalid()
+            if (debt.aprBasisPoints !in 0..Apr.MAX_BASIS_POINTS) invalid()
+            if (debt.minPaymentCents < 0) invalid()
+            if (debt.dueDay !in 1..28) invalid()
+        }
+        val entryIds = file.debtEntries.map { it.id }
+        if (entryIds.any { it <= 0 } || entryIds.toSet().size != entryIds.size) invalid()
+        if (file.debtEntries.any { it.debtId !in debtSet }) invalid()
+        file.settings?.let { st ->
+            if (st.monthStartDay !in Period.MIN_START_DAY..Period.MAX_START_DAY) invalid()
+            if (st.extraPerMonthCents < 0) invalid()
+            if (st.expectedIncomeCents != null && st.expectedIncomeCents < 0) invalid()
+        }
         for (tx in file.transactions) {
+            if (tx.debtId != null && tx.debtId !in debtSet) invalid()
             if (tx.accountId !in accountSet) invalid()
             if (tx.toAccountId != null && tx.toAccountId !in accountSet) invalid()
             if (tx.categoryId != null && tx.categoryId !in categorySet) invalid()
@@ -157,6 +210,36 @@ object BackupJson {
         put("createdAt", b.createdAt)
     }
 
+    private fun debtToJson(d: BackupDebt) = JSONObject().apply {
+        put("id", d.id)
+        put("name", d.name)
+        put("startingBalanceCents", d.startingBalanceCents)
+        putNullable("originalAmountCents", d.originalAmountCents)
+        put("aprBasisPoints", d.aprBasisPoints)
+        put("minPaymentCents", d.minPaymentCents)
+        put("dueDay", d.dueDay)
+        put("archived", d.archived)
+        put("sortOrder", d.sortOrder)
+        put("createdAt", d.createdAt)
+    }
+
+    private fun debtEntryToJson(e: BackupDebtEntry) = JSONObject().apply {
+        put("id", e.id)
+        put("debtId", e.debtId)
+        put("type", e.type.name)
+        put("amountCents", e.amountCents)
+        put("date", e.date.toString())
+        put("note", e.note)
+        put("createdAt", e.createdAt)
+    }
+
+    private fun settingsToJson(s: BackupSettings) = JSONObject().apply {
+        put("monthStartDay", s.monthStartDay)
+        putNullable("expectedIncomeCents", s.expectedIncomeCents)
+        put("extraPerMonthCents", s.extraPerMonthCents)
+        put("payoffOrder", s.payoffOrder.name)
+    }
+
     // ---- from JSON ----
 
     private fun <T> JSONArray.mapObjects(transform: (JSONObject) -> T): List<T> =
@@ -205,5 +288,35 @@ object BackupJson {
         limitCents = o.getLong("limitCents"),
         startPeriod = o.getString("startPeriod"),
         createdAt = o.getLong("createdAt"),
+    )
+
+    private fun debtFromJson(o: JSONObject) = BackupDebt(
+        id = o.getLong("id"),
+        name = o.getString("name"),
+        startingBalanceCents = o.getLong("startingBalanceCents"),
+        originalAmountCents = o.nullableLong("originalAmountCents"),
+        aprBasisPoints = o.getInt("aprBasisPoints"),
+        minPaymentCents = o.getLong("minPaymentCents"),
+        dueDay = o.getInt("dueDay"),
+        archived = o.getBoolean("archived"),
+        sortOrder = o.getInt("sortOrder"),
+        createdAt = o.getLong("createdAt"),
+    )
+
+    private fun debtEntryFromJson(o: JSONObject) = BackupDebtEntry(
+        id = o.getLong("id"),
+        debtId = o.getLong("debtId"),
+        type = DebtEntryType.valueOf(o.getString("type")),
+        amountCents = o.getLong("amountCents"),
+        date = LocalDate.parse(o.getString("date")),
+        note = o.getString("note"),
+        createdAt = o.getLong("createdAt"),
+    )
+
+    private fun settingsFromJson(o: JSONObject) = BackupSettings(
+        monthStartDay = if (o.has("monthStartDay")) o.getInt("monthStartDay") else 1,
+        expectedIncomeCents = o.nullableLong("expectedIncomeCents"),
+        extraPerMonthCents = if (o.has("extraPerMonthCents")) o.getLong("extraPerMonthCents") else 0L,
+        payoffOrder = if (o.has("payoffOrder")) PayoffOrder.valueOf(o.getString("payoffOrder")) else PayoffOrder.HIGHEST_INTEREST,
     )
 }

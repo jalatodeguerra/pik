@@ -24,7 +24,9 @@ import com.pik.app.ui.screens.activity.ActivityScreen
 import com.pik.app.ui.screens.add.AddTransactionScreen
 import com.pik.app.ui.screens.firstrun.FirstRunScreen
 import com.pik.app.ui.screens.home.HomeScreen
-import com.pik.app.ui.screens.placeholder.DebtsScreen
+import com.pik.app.ui.screens.debts.DebtDetailScreen
+import com.pik.app.ui.screens.debts.DebtEditScreen
+import com.pik.app.ui.screens.debts.DebtsScreen
 import com.pik.app.ui.screens.plan.BudgetEditorScreen
 import com.pik.app.ui.screens.plan.PlanScreen
 import com.pik.app.ui.screens.settings.CategoriesScreen
@@ -92,6 +94,7 @@ private fun PikNavigation(startDestination: String, quickAddToken: Int) {
                     onTransactionClick = { id -> navController.navigate(Routes.edit(id)) },
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                     onPlanClick = { navController.navigateToTab(Routes.PLAN) },
+                    onDebtsClick = { navController.navigateToTab(Routes.DEBTS) },
                 )
             }
             composable(Routes.ACTIVITY) {
@@ -114,7 +117,37 @@ private fun PikNavigation(startDestination: String, quickAddToken: Int) {
             composable(Routes.BUDGETS) {
                 BudgetEditorScreen(onBack = { navController.popBackStack() })
             }
-            composable(Routes.DEBTS) { DebtsScreen() }
+            composable(Routes.DEBTS) {
+                DebtsScreen(
+                    onAddDebt = { navController.navigate(Routes.debtAdd()) },
+                    onDebtClick = { id -> navController.navigate(Routes.debtDetail(id)) },
+                )
+            }
+            composable(
+                route = Routes.DEBT_DETAIL,
+                arguments = listOf(navArgument(Routes.ARG_DEBT_ID) { type = NavType.LongType }),
+            ) {
+                DebtDetailScreen(
+                    onBack = { navController.popBackStack() },
+                    onEditDebt = { id -> navController.navigate(Routes.debtEdit(id)) },
+                    onEditPayment = { id -> navController.navigate(Routes.edit(id)) },
+                )
+            }
+            composable(
+                route = Routes.DEBT_EDIT,
+                arguments = listOf(
+                    navArgument(Routes.ARG_DEBT_ID) {
+                        type = NavType.LongType
+                        defaultValue = -1L
+                    },
+                ),
+            ) {
+                DebtEditScreen(
+                    onBack = { navController.popBackStack() },
+                    // After archiving or deleting, the debt page below would be stale: back to the list.
+                    onLeaveToList = { navController.popBackStack(Routes.DEBTS, inclusive = false) },
+                )
+            }
             composable(
                 route = Routes.ADD,
                 arguments = listOf(

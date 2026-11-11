@@ -66,7 +66,8 @@
     <string name="home_you_have">You have</string>
     <string name="home_cash_and_bank">Cash and bank accounts</string>
     <string name="home_you_owe">You owe</string>
-    <string name="home_you_owe_hint">Add debts in a later update</string>
+    <string name="home_you_owe_hint">All your debts together</string>
+    <string name="home_you_owe_hint_empty">Add your debts in the Debts tab</string>
     <string name="home_money_in">Money in, %1$s</string>
     <string name="home_money_out">Money out, %1$s</string>
     <string name="home_accounts">Accounts</string>
@@ -134,14 +135,14 @@
     <!-- Backup -->
     <string name="backup_last_saved">Last saved: %1$s</string>
     <string name="backup_never">Never</string>
-    <string name="backup_explanation">Save all your accounts, categories and transactions to one file. Keep it somewhere safe, for example in your cloud storage.</string>
+    <string name="backup_explanation">Save all your accounts, categories, transactions, budgets, debts and plan settings to one file. Keep it somewhere safe, for example in your cloud storage.</string>
     <string name="backup_save">Save backup file</string>
     <string name="backup_restore">Restore from file</string>
     <string name="backup_restore_confirm">Restore</string>
     <string name="backup_saved">Backup saved</string>
     <string name="backup_failed">Could not save the backup file.</string>
     <string name="restore_confirm_title">Restore this backup?</string>
-    <string name="restore_confirm_message">This replaces everything in Pik with the backup. The file has %1$d accounts, %2$d categories and %3$d transactions.</string>
+    <string name="restore_confirm_message">This replaces everything in Pik with the backup. The file has %1$d accounts, %2$d categories, %3$d transactions and %4$d debts.</string>
     <string name="restore_done">Backup restored</string>
     <string name="restore_read_failed">Could not read that file.</string>
     <string name="restore_not_a_backup">This file is not a Pik backup.</string>
@@ -150,7 +151,7 @@
     <string name="restore_failed">Restore failed. Nothing was changed.</string>
 
     <!-- Activity search and filters -->
-    <string name="activity_search_hint">Search note, category or account</string>
+    <string name="activity_search_hint">Search note, category, account or debt</string>
     <string name="activity_search_clear">Clear search</string>
     <string name="activity_no_matches">No transactions match your search or filters.</string>
     <string name="filter_all">All</string>
@@ -173,6 +174,7 @@
     <string name="safe_per_day_last">about %1$s for today, the last day</string>
     <string name="safe_over_spent">Over-spent</string>
     <string name="safe_over_spent_by">You have spent %1$s more than your income this period.</string>
+    <string name="safe_debts_set_aside">%1$s still to pay on debts is already set aside.</string>
     <string name="safe_spent_of_planned">Spent %1$s of %2$s</string>
     <string name="safe_no_income_hint">Add income, or set your expected monthly income in Settings, to see what is safe to spend.</string>
     <string name="home_safe_to_spend_over">Over-spent by %1$s</string>
@@ -212,7 +214,103 @@
     <string name="settings_expected_income_field">Expected income per month</string>
     <string name="settings_expected_income_clear_hint">Leave empty to clear it.</string>
 
-    <!-- Placeholders -->
+    <!-- Debt payments in lists -->
+    <string name="transaction_debt_payment">Debt payment</string>
+    <string name="transaction_debt_payment_named">Debt payment · %1$s</string>
+    <string name="plan_debt_payments">Debt payments</string>
+    <string name="add_debt_payment_for">Paying down</string>
+    <string name="add_debt_payment_hint">A debt payment counts as spending and lowers the debt. To change the debt, delete this payment and log a new one from the debt.</string>
+
+    <!-- Debts tab -->
     <string name="debts_title">Debts</string>
-    <string name="debts_coming_soon">Tracking and paying off debts is coming in the next updates.</string>
+    <string name="debts_add">Add debt</string>
+    <string name="debts_empty_title">No debts yet</string>
+    <string name="debts_empty_message">Add a debt to see how much you still owe, when you will be debt-free and how extra payments speed it up. Debt payments count as spending.</string>
+    <string name="debts_empty_button">Add a debt</string>
+    <string name="debts_total_remaining">You still owe</string>
+    <string name="debts_paid_off_percent">%1$d%% paid off</string>
+    <string name="debts_debt_free_by">Debt-free by %1$s</string>
+    <string name="debts_debt_free_now">You are debt-free</string>
+    <string name="debts_interest_to_pay">About %1$s interest still to pay</string>
+    <string name="debts_never_pays_off">This plan doesn\'t cover the interest. Pay more each month, or the debt keeps growing.</string>
+    <string name="debts_plan_assumption">Based on the minimum payments plus %1$s extra per month, and the interest rates you entered.</string>
+    <string name="debts_order_title">Payoff order</string>
+    <string name="debts_order_highest_interest">Highest interest</string>
+    <string name="debts_order_smallest_balance">Smallest balance</string>
+    <string name="debts_order_hint">The extra money goes to the first debt in the list. When a debt is paid off, its payment rolls over to the next one.</string>
+    <string name="debts_order_result">%1$s, %2$s interest</string>
+    <string name="debts_order_never">Never paid off</string>
+    <string name="debts_whatif_title">What if I pay more?</string>
+    <string name="debts_whatif_extra">Extra per month: %1$s</string>
+    <string name="debts_whatif_saved">Saved: %1$s</string>
+    <string name="debts_whatif_use">Use this</string>
+    <string name="debts_whatif_no_extra">No extra payment. Move the slider to see what it changes.</string>
+    <string name="debts_whatif_sooner">Debt-free %1$s sooner and %2$s less interest than with no extra payment.</string>
+    <string name="debts_whatif_possible">With this extra payment the debts can be paid off.</string>
+    <string name="debts_whatif_never">Still not enough to cover the interest.</string>
+    <string name="debts_your_debts">Your debts</string>
+    <string name="debts_archived">Archived</string>
+    <string name="debts_row_details">%1$s · minimum %2$s · due day %3$d</string>
+    <string name="debts_paid_off">Paid off</string>
+    <string name="duration_month">%1$d month</string>
+    <string name="duration_months">%1$d months</string>
+    <string name="duration_year_months">%1$d y %2$d m</string>
+
+    <!-- Add / edit debt -->
+    <string name="debt_new_title">New debt</string>
+    <string name="debt_edit_title">Edit debt</string>
+    <string name="debt_name">Name</string>
+    <string name="debt_balance_now">Current balance</string>
+    <string name="debt_balance_when_added">Balance when added</string>
+    <string name="debt_balance_edit_hint">This is where Pik starts counting. To match your bank, use Check balance on the debt page instead.</string>
+    <string name="debt_original">Original amount (optional)</string>
+    <string name="debt_original_hint">The size of the loan when you took it. Used to show how much is already paid off.</string>
+    <string name="debt_apr">Interest rate per year (APR)</string>
+    <string name="debt_apr_hint">For example 12,5</string>
+    <string name="debt_min_payment">Minimum payment per month</string>
+    <string name="debt_due_day">Due day</string>
+    <string name="debt_due_day_field">Due day: %1$d</string>
+    <string name="debt_due_day_hint">Day of the month when the payment is due (1 to 28).</string>
+    <string name="debt_invalid">Check the highlighted fields.</string>
+    <string name="debt_archive_hint">An archived debt is left out of You owe, the payoff plan and safe to spend. Its history stays.</string>
+    <string name="debt_delete_title">Delete this debt?</string>
+    <string name="debt_delete_message">Its interest and fee entries are deleted too. This cannot be undone.</string>
+    <string name="debt_delete_blocked">This debt has payments, so it cannot be deleted. Archive it instead.</string>
+
+    <!-- Debt detail -->
+    <string name="debt_detail_you_owe">You owe</string>
+    <string name="debt_detail_paid_of">%1$s paid of %2$s</string>
+    <string name="debt_detail_rate_line">%1$s per year · minimum %2$s · due day %3$d</string>
+    <string name="debt_detail_log_payment">Log payment</string>
+    <string name="debt_detail_add_entry">Add interest or fee</string>
+    <string name="debt_detail_check_balance">Check balance</string>
+    <string name="debt_detail_edit">Edit debt</string>
+    <string name="debt_detail_history">History</string>
+    <string name="debt_detail_history_empty">No payments or entries yet.</string>
+    <string name="debt_history_payment_from">Payment · %1$s</string>
+    <string name="debt_entry_interest">Interest</string>
+    <string name="debt_entry_fee">Fee</string>
+    <string name="debt_entry_adjustment">Balance adjustment</string>
+    <string name="debt_entry_delete_title">Delete this entry?</string>
+    <string name="debt_entry_delete_message">The amount you owe changes back. This cannot be undone.</string>
+    <string name="debt_not_found">This debt no longer exists.</string>
+
+    <!-- Debt dialogs -->
+    <string name="debt_payment_title">Log payment: %1$s</string>
+    <string name="debt_payment_amount">Amount</string>
+    <string name="debt_payment_account">Paid from</string>
+    <string name="debt_payment_note">Note (optional)</string>
+    <string name="debt_payment_save">Log payment</string>
+    <string name="debt_entry_title">Add interest or fee</string>
+    <string name="debt_entry_amount">Amount</string>
+    <string name="debt_entry_note">Note (optional)</string>
+    <string name="debt_entry_hint">Enter what the lender charged. It raises what you owe.</string>
+    <string name="debt_check_title">Check balance: %1$s</string>
+    <string name="debt_check_pik_says">Pik says you owe %1$s</string>
+    <string name="debt_check_field">Type what your bank says you owe</string>
+    <string name="debt_check_hint">Type the real amount, for example 1.234,56</string>
+    <string name="debt_check_difference">Pik will add an adjustment of %1$s</string>
+    <string name="debt_check_adjust">Adjust</string>
+    <string name="debt_check_note">Balance check</string>
+    <string name="date_field">Date: %1$s</string>
 </resources>

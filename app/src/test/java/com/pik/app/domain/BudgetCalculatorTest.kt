@@ -93,4 +93,25 @@ class BudgetCalculatorTest {
         val o = BudgetCalculator.overview(emptyMap(), listOf(CategorySpend(1, 0)))
         assertTrue(o.notBudgeted.isEmpty())
     }
+
+    @Test fun debtPaymentsHaveTheirOwnBucketButCountInTheTotal() {
+        val txs = listOf(
+            TxFacts(TransactionType.EXPENSE, 1_000, 1, null, 5),
+            TxFacts(TransactionType.EXPENSE, 200, 1, null, null),
+            TxFacts(TransactionType.EXPENSE, 5_000, 1, null, null, debtId = 3),
+            TxFacts(TransactionType.EXPENSE, 2_500, 1, null, null, debtId = 4),
+            TxFacts(TransactionType.INCOME, 9_999, 1, null, null, debtId = 3),
+        )
+        val spend = BudgetCalculator.spendByCategory(txs)
+        assertEquals(
+            setOf(CategorySpend(5, 1_000), CategorySpend(null, 200), CategorySpend(null, 7_500, isDebtPayment = true)),
+            spend.toSet(),
+        )
+        val overview = BudgetCalculator.overview(mapOf(null to 10_000L, 5L to 2_000L), spend)
+        assertEquals(8_700L, overview.overall?.spentCents)
+        assertEquals(
+            listOf(CategorySpend(null, 7_500, isDebtPayment = true), CategorySpend(null, 200)),
+            overview.notBudgeted,
+        )
+    }
 }

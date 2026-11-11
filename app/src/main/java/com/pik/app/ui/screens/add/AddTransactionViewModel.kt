@@ -9,6 +9,7 @@ import com.pik.app.data.db.TransactionEntity
 import com.pik.app.data.prefs.PikPreferences
 import com.pik.app.data.repo.AccountRepository
 import com.pik.app.data.repo.CategoryRepository
+import com.pik.app.data.repo.DebtRepository
 import com.pik.app.data.repo.TransactionRepository
 import com.pik.app.domain.AmountInput
 import com.pik.app.domain.CategoryKind
@@ -41,17 +42,23 @@ data class AddUiState(
     val categoryId: Long? = null,
     val date: LocalDate = LocalDate.now(),
     val note: String = "",
+    /** Set when editing a debt payment: the category is replaced by the debt. */
+    val debtId: Long? = null,
+    val debtName: String? = null,
     val saving: Boolean = false,
     /** Incremented after "Save and add another" so the UI can confirm. */
     val savedCount: Int = 0,
     /** True when the screen should close. */
     val finished: Boolean = false,
 ) {
+    val isDebtPayment: Boolean get() = debtId != null
+
     val canSave: Boolean
         get() = !saving && amount.toCents() > 0 && when (type) {
             TransactionType.TRANSFER ->
                 accountId != null && toAccountId != null && accountId != toAccountId
-            else -> accountId != null && categoryId != null
+            // A debt payment needs no category.
+            else -> accountId != null && (categoryId != null || debtId != null)
         }
 }
 
@@ -62,6 +69,7 @@ class AddTransactionViewModel @Inject constructor(
     private val transactions: TransactionRepository,
     private val accountRepository: AccountRepository,
     private val categoryRepository: CategoryRepository,
+    private val debtRepository: DebtRepository,
     private val prefs: PikPreferences,
 ) : ViewModel() {
 
@@ -83,9 +91,12 @@ class AddTransactionViewModel @Inject constructor(
                 _state.update { it.copy(isLoading = false, finished = true) }
                 return@launch
             }
+            val debtName = existing?.debtId?.let { debtRepository.get(it)?.name }
             _state.update { s ->
                 if (existing != null) {
                     s.copy(
+                        debtId = existing.debtId,
+                        debtName = debtName,
                         isLoading = false,
                         type = existing.type,
                         amount = AmountInput.fromCents(existing.amountCents),
@@ -145,7 +156,8 @@ class AddTransactionViewModel @Inject constructor(
 
     fun selectType(type: TransactionType) {
         _state.update { s ->
-            if (s.type == type) return@update s
+            // A debt payment stays an expense.
+            if (s.type == type || s.isDebtPayment) return@update s
             s.copy(
                 type = type,
                 categoryId = null,
@@ -201,7 +213,7 @@ class AddTransactionViewModel @Inject constructor(
                 date = s.date,
                 accountId = accountId,
                 toAccountId = if (s.type == TransactionType.TRANSFER) s.toAccountId else null,
-                categoryId = if (s.type == TransactionType.TRANSFER) null else s.categoryId,
+                categoryId = if (s.type == TransactionType.TRANSFER || old?.debtId != null) null else s.categoryId,
                 note = s.note.trim(),
                 debtId = old?.debtId,
                 recurringId = old?.recurringId,

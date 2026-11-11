@@ -7,6 +7,8 @@ data class TxFacts(
     val accountId: Long,
     val toAccountId: Long?,
     val categoryId: Long? = null,
+    /** Set on an EXPENSE that pays a debt. */
+    val debtId: Long? = null,
 )
 
 data class MonthTotals(val incomeCents: Long, val expenseCents: Long)
