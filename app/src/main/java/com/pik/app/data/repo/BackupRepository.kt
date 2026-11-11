@@ -9,6 +9,7 @@ import com.pik.app.backup.BackupDebtEntry
 import com.pik.app.backup.BackupSettings
 import com.pik.app.backup.BackupFile
 import com.pik.app.backup.BackupJson
+import com.pik.app.backup.BackupRecurringRule
 import com.pik.app.backup.BackupTransaction
 import com.pik.app.data.db.AccountDao
 import com.pik.app.data.db.AccountEntity
@@ -20,6 +21,8 @@ import com.pik.app.data.db.DebtDao
 import com.pik.app.data.db.DebtEntity
 import com.pik.app.data.db.DebtEntryEntity
 import com.pik.app.data.db.PikDatabase
+import com.pik.app.data.db.RecurringDao
+import com.pik.app.data.db.RecurringRuleEntity
 import com.pik.app.data.db.TransactionDao
 import com.pik.app.data.db.TransactionEntity
 import com.pik.app.data.prefs.PikPreferences
@@ -37,6 +40,7 @@ class BackupRepository @Inject constructor(
     private val transactionDao: TransactionDao,
     private val budgetDao: BudgetDao,
     private val debtDao: DebtDao,
+    private val recurringDao: RecurringDao,
     private val prefs: PikPreferences,
 ) {
     /** Consistent snapshot of every row, serialized as the backup JSON text. */
@@ -58,6 +62,7 @@ class BackupRepository @Inject constructor(
                 budgets = budgetDao.getAll().map { it.toBackup() },
                 debts = debtDao.getAll().map { it.toBackup() },
                 debtEntries = debtDao.getAllEntries().map { it.toBackup() },
+                recurringRules = recurringDao.getAll().map { it.toBackup() },
                 settings = settings,
             )
         }
@@ -72,6 +77,8 @@ class BackupRepository @Inject constructor(
     suspend fun replaceAll(file: BackupFile) {
         BackupJson.validate(file)
         db.withTransaction {
+            // Rules first: they point to accounts (RESTRICT), categories and debts.
+            recurringDao.deleteAll()
             transactionDao.deleteAll()
             budgetDao.deleteAll()
             categoryDao.deleteAll()
@@ -84,6 +91,7 @@ class BackupRepository @Inject constructor(
             debtDao.insertEntries(file.debtEntries.map { it.toEntity() })
             transactionDao.insertAll(file.transactions.map { it.toEntity() })
             budgetDao.insertAll(file.budgets.map { it.toEntity() })
+            recurringDao.insertAll(file.recurringRules.map { it.toEntity() })
         }
         file.settings?.let {
             prefs.restorePlanSettings(it.monthStartDay, it.expectedIncomeCents, it.extraPerMonthCents, it.payoffOrder)
@@ -118,6 +126,22 @@ private fun BackupDebt.toEntity() = DebtEntity(
     aprBasisPoints = aprBasisPoints, minPaymentCents = minPaymentCents, dueDay = dueDay, archived = archived,
     sortOrder = sortOrder, createdAt = createdAt, taegBasisPoints = taegBasisPoints, type = type,
     totalInstallments = totalInstallments, installmentsPaidBefore = installmentsPaidBefore,
+)
+
+private fun RecurringRuleEntity.toBackup() = BackupRecurringRule(
+    id = id, name = name, kind = kind, transactionType = transactionType, amountCents = amountCents,
+    accountId = accountId, categoryId = categoryId, debtId = debtId, note = note, startDate = startDate,
+    intervalCount = intervalCount, intervalUnit = intervalUnit, dayOfMonth = dayOfMonth, endDate = endDate,
+    maxOccurrences = maxOccurrences, occurrencesDone = occurrencesDone, nextDueDate = nextDueDate,
+    remindDayBefore = remindDayBefore, active = active, createdAt = createdAt,
+)
+
+private fun BackupRecurringRule.toEntity() = RecurringRuleEntity(
+    id = id, name = name, kind = kind, transactionType = transactionType, amountCents = amountCents,
+    accountId = accountId, categoryId = categoryId, debtId = debtId, note = note, startDate = startDate,
+    intervalCount = intervalCount, intervalUnit = intervalUnit, dayOfMonth = dayOfMonth, endDate = endDate,
+    maxOccurrences = maxOccurrences, occurrencesDone = occurrencesDone, nextDueDate = nextDueDate,
+    remindDayBefore = remindDayBefore, active = active, createdAt = createdAt,
 )
 
 private fun BackupDebtEntry.toEntity() = DebtEntryEntity(id, debtId, type, amountCents, date, note, createdAt)

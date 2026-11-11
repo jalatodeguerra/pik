@@ -35,6 +35,8 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
@@ -402,6 +404,47 @@ fun PikMoneyField(
 }
 
 private const val MAX_MONEY_TEXT_LENGTH = 20
+
+/** A label (and optional explanation) with a switch. [accent] is the color of the switched-on track. */
+@Composable
+fun PikSwitchRow(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    supporting: String? = null,
+    accent: Color = PikColors.Lime,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(text = label, style = MaterialTheme.typography.bodyLarge, color = PikColors.TextPrimary)
+            if (supporting != null) {
+                Text(
+                    text = supporting,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = PikColors.TextSecondary,
+                )
+            }
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = PikColors.OnLime,
+                checkedTrackColor = accent,
+                uncheckedThumbColor = PikColors.TextSecondary,
+                uncheckedTrackColor = PikColors.Surface,
+                uncheckedBorderColor = PikColors.Outline,
+            ),
+        )
+    }
+}
 
 /** "1 month", "14 months" or "1 y 3 m" from 24 months on. */
 @Composable

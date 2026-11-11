@@ -49,6 +49,27 @@ object DateFormats {
             "${date.dayOfMonth} ${shortMonth(date.month, locale)}"
     }
 
+    /** The day of the month as a short ordinal: "1st", "2nd", "3rd", "5th", "11th" / "1°", "5". */
+    fun ordinalDay(day: Int, locale: Locale = Locale.getDefault()): String {
+        if (locale.language == "it") return if (day == 1) "1\u00B0" else day.toString()
+        val suffix = when {
+            day % 100 in 11..13 -> "th"
+            day % 10 == 1 -> "st"
+            day % 10 == 2 -> "nd"
+            day % 10 == 3 -> "rd"
+            else -> "th"
+        }
+        return "$day$suffix"
+    }
+
+    /** "Mon" / "lun": a short weekday name for a week strip. */
+    fun weekdayShort(day: DayOfWeek, locale: Locale = Locale.getDefault()): String =
+        capitalise(day.getDisplayName(TextStyle.SHORT, locale).trimEnd('.'), locale)
+
+    /** "Monday" / "lunedì": the weekday name in the middle of a sentence (the locale's own case). */
+    fun weekdayName(day: DayOfWeek, locale: Locale = Locale.getDefault()): String =
+        day.getDisplayName(TextStyle.FULL, locale)
+
     fun relativeDay(date: LocalDate, today: LocalDate): RelativeDay = when (date) {
         today -> RelativeDay.TODAY
         today.minusDays(1) -> RelativeDay.YESTERDAY

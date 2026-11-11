@@ -7,8 +7,9 @@ Milestone 2 completed "track spending": first-run setup, accounts (cash and bank
 editing expenses, income and transfers, an activity list by month with search and filters, a home
 screen with balances, a Settings screen (accounts, categories, backup, about), balance checks and
 backup files. Milestone 3 added the Plan tab: payday month, budgets and "safe to spend". Milestone 4
-(this version) adds debts: a Debts tab with a payoff plan, debt payments, interest and fee entries, a
-"What if I pay more?" slider, and backup format 3.
+added debts: a Debts tab with a payoff plan, debt payments, interest and fee entries, a "What if I pay
+more?" slider, TAN / TAEG, loan types and instalments. Milestone 5 (this version) adds recurring bills,
+subscriptions, income and debt instalments, a "Due" list, daily reminders and backup format 5.
 
 ## Features
 
@@ -38,6 +39,9 @@ backup files. Milestone 3 added the Plan tab: payday month, budgets and "safe to
 - **Debts tab**: a paid-off ring, the total you still owe, the debt-free month and the interest still
   to pay, the payoff order (highest interest or smallest balance, with months and interest for each), a
   "What if I pay more?" slider and the list of debts. See "Debts" below.
+- **Recurring** (Home quick link and a card on Plan): bills, subscriptions, regular income and debt
+  instalments, a "Due soon / Overdue" list on Home, a week strip, monthly and yearly totals and a daily
+  reminder. See "Recurring" below.
 - **App shortcut**: long-press the Pik icon and choose "Add expense" to open the Add screen
   directly (only after first-run setup).
 
@@ -167,14 +171,15 @@ foreign key to `categories` with ON DELETE CASCADE), `limitCents`, `startPeriod`
 One definition, `domain/SafeToSpend.kt`, used by Home and Plan:
 
 ```
-plannedIncome = max(expected monthly income setting, income received this period)
+plannedIncome = max(expected monthly income setting, income received this period + incomeStillDue)
 safeToSpend   = plannedIncome - spentSoFar - billsStillDue - debtPaymentsDue
 perDay        = safeToSpend / days left in the period (today included); 0 when safeToSpend <= 0
 ```
 
 `spentSoFar` is the EXPENSE total of the period (transfers and adjustments excluded). Debt payments
-are expenses, so what you already paid to debts is inside `spentSoFar`. `billsStillDue` is 0 until
-recurring transactions exist (next milestone). When `safeToSpend` is negative the screens show an
+are expenses, so what you already paid to debts is inside `spentSoFar`. `billsStillDue` is the
+unconfirmed BILL and SUBSCRIPTION occurrences from today to the end of the period and `incomeStillDue` the
+unconfirmed INCOME ones (see "Recurring"); DEBT_PAYMENT rules are left out of `billsStillDue`. When `safeToSpend` is negative the screens show an
 over-spent state. "Expected monthly income" is optional (Settings -> Plan); when it is not set,
 planned income is the income received. Only the current period shows safe to spend.
 
@@ -197,12 +202,127 @@ the extra first. The two `min(..., remaining)` caps are an addition to the plain
 more is reserved than what is still owed. Plan shows "X still to pay on debts is already set aside"
 when the figure is above 0.
 
+## Recurring
+
+### Schema version 5: `recurring_rules`
+
+`MIGRATION_4_5` adds one table (existing tables are untouched; `transactions.recurringId` already existed
+and still has no foreign key):
+
+```sql
+CREATE TABLE IF NOT EXISTS `recurring_rules` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+  `name` TEXT NOT NULL, `kind` TEXT NOT NULL, `transactionType` TEXT NOT NULL, `amountCents` INTEGER NOT NULL,
+  `accountId` INTEGER NOT NULL, `categoryId` INTEGER, `debtId` INTEGER, `note` TEXT NOT NULL,
+  `startDate` INTEGER NOT NULL, `intervalCount` INTEGER NOT NULL, `intervalUnit` TEXT NOT NULL,
+  `dayOfMonth` INTEGER, `endDate` INTEGER, `maxOccurrences` INTEGER,
+  `occurrencesDone` INTEGER NOT NULL DEFAULT 0, `nextDueDate` INTEGER NOT NULL,
+  `remindDayBefore` INTEGER NOT NULL, `active` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL,
+  FOREIGN KEY(`accountId`) REFERENCES `accounts`(`id`) ON DELETE RESTRICT,
+  FOREIGN KEY(`categoryId`) REFERENCES `categories`(`id`) ON DELETE SET NULL,
+  FOREIGN KEY(`debtId`) REFERENCES `debts`(`id`) ON DELETE CASCADE)
+-- plus indices on accountId, categoryId and debtId
+```
+
+- `kind` is `BILL`, `SUBSCRIPTION`, `INCOME` or `DEBT_PAYMENT`. `transactionType` is `INCOME` for income and
+  `EXPENSE` for everything else. A debt payment has a `debtId` and no category.
+- The schedule is "every `intervalCount` `intervalUnit` (`WEEK`, `MONTH`, `YEAR`) from `startDate`", on
+  `dayOfMonth` for months and years, ending on `endDate` and / or after `maxOccurrences` occurrences.
+- `occurrencesDone` counts the occurrences already confirmed **or skipped**; `nextDueDate` is the date of the
+  next one (the date of the last one when the series is over, and then `active` is false).
+- An account used by a rule cannot be deleted (RESTRICT; Settings says the account is in use), a deleted
+  category clears the rule's category, a deleted debt deletes its rule. Deleting a rule keeps the
+  transactions it created.
+
+### Dates: `RecurrenceCalculator`
+
+`domain/RecurrenceCalculator.kt` is pure Kotlin (unit tested: 31st, leap years, every 2 weeks, quarterly,
+end by date and by count). Occurrence number *n* of a series is computed from the start and *n*, never from
+the previous date, so a clamped day does not drift: day 31 gives 31 Jan, 28 Feb, 31 Mar, 30 Apr, 31 May ...
+In a month that is too short the last day is used (28 or 29 Feb for 29, 30 and 31). A yearly 29 Feb is 28 Feb
+in non-leap years. "Quarterly" is every 3 months. A start date that is after the chosen day of the month
+(start 20 Jan, day 5) moves the first occurrence to 5 Feb (`normalized`).
+
+History is not backfilled: when a rule is created, or its start date, interval or unit change, the
+occurrences before the first day of the current month count as done. Changing only the amount, the day, the
+end or the name keeps what is done.
+
+### Confirming and the Due list
+
+Nothing is logged automatically. Every occurrence that is not confirmed or skipped and has a date on or before
+today + 7 days is in the **Due** list (Home card "Due soon" / "Overdue", and the Recurring screen). After days
+without opening the app every missed occurrence (date before today) shows as overdue. Only the oldest pending
+occurrence of a rule can be handled (the later ones are greyed out until then). Tapping an item opens a small
+sheet: editable amount (bills vary, Italian input), account (the rule's, or any active account) and date
+(default: the due date).
+
+- **Confirm** creates the transaction with `recurringId` (and `debtId` for a debt payment, which has no
+  category; a bill or income keeps the rule's category and uses the rule's note or, when empty, its name) and
+  moves the rule to the next occurrence.
+- **Skip** moves on without a transaction.
+- A series that ends (end date or count) becomes inactive after the last occurrence is handled.
+
+### Recurring screen
+
+A week strip (today and the next 6 days, an amber dot for each item due that day), the Due list, the monthly
+and yearly **outgoing** totals (bills, subscriptions and debt payments; weekly x 52, monthly x 12, yearly x 1,
+divided by the interval, rounded to the cent) and the rules grouped by kind (Bills, Subscriptions, Debt payments,
+Income) with the amount, the frequency ("Every month on the 5th" / "Ogni mese il 5") and the next date. The
+add / edit screen has: name, kind chips, amount, account, category (expense or income categories by kind; hidden
+for debt payments), start date, repeat (every N weeks / months / years), day of the month, ends (never / on a
+date / after N times), "Remind me the day before" and a note. Amber is the recurring color.
+
+### Debts own their schedule
+
+On the debt edit screen, **Remind me and track this payment** (on by default for a new debt, shown when the
+instalment is above 0) creates a `DEBT_PAYMENT` rule: amount = the instalment / minimum payment, day = the
+debt's due day, name = the debt's name, account = the last used one. Editing the debt's instalment, due day or
+name updates its rule (the rule's day always comes from the debt); archiving the debt deactivates the rule and
+unarchiving it activates it again (months that passed meanwhile are not asked for); turning the switch off
+deletes the rule. A new rule starts this month when the due day is still ahead and this month's instalment was
+not paid yet, otherwise next month, so linking a debt never creates overdue items. The rule can be opened from
+the Recurring screen to change the account, the reminder and the note; amount and day are changed in the debt.
+
+### Safe to spend and recurring
+
+```
+billsStillDue    = sum of BILL + SUBSCRIPTION occurrences dated today .. end of the period, not confirmed
+incomeStillDue   = sum of INCOME occurrences dated today .. end of the period, not confirmed
+plannedIncome    = max(expected income setting, received income + incomeStillDue)
+safeToSpend      = plannedIncome - spentSoFar - billsStillDue - debtPaymentsDue
+```
+
+`DEBT_PAYMENT` rules are excluded from `billsStillDue`: debts are already counted through `debtPaymentsDue`, so
+nothing is counted twice. A confirmed bill is an expense: it moves from "still due" to `spentSoFar`. Overdue
+(unconfirmed, dated before today) bills and subscriptions still count in `billsStillDue`, because they still
+have to be paid; overdue income that was never confirmed is not counted.
+A weekly bill counts once for every date left in the period. Plan shows "X of bills and subscriptions still due
+this period is already set aside" and, when relevant, "Includes X of income you expect later".
+
+### Reminders
+
+A WorkManager periodic work (`pik_daily_reminder`, every 24 hours with a 2 hour flex window) runs
+`ReminderWorker` (a `@HiltWorker`; `PikApp` is the `Configuration.Provider` with `HiltWorkerFactory`, and the
+default `WorkManagerInitializer` is removed in the manifest). Once a day it posts **one** notification in the
+"Reminders" channel with the items due **tomorrow** whose rule has "Remind me the day before", plus the number of
+overdue items. Nothing is posted when nothing is due tomorrow or when notifications are not allowed. Tapping it
+opens the Recurring screen.
+
+- The work is scheduled on every app start (`KEEP`) and again with `UPDATE` when the **Reminder time** (Settings
+  -> Reminders, default 9:00) changes. The time is the delay before the first run; Android may run it later
+  ("Android can delay it"), and phones with aggressive battery savers (OnePlus) can stop it.
+- **POST_NOTIFICATIONS** (Android 13+) is asked only when the user first turns on "Remind me the day before",
+  never at launch. If it is denied, the switch shows a hint and Settings shows "Allow notifications" (opens the
+  app notification settings) while any reminder is on.
+- Settings -> Reminders -> **If reminders don't arrive** opens the app's system settings
+  (`ACTION_APPLICATION_DETAILS_SETTINGS`) with a short explanation: go to Battery and allow background activity.
+
 ## Stack
 
 - Kotlin 2.1.21, Jetpack Compose (Material 3, BOM 2025.05.01), dark theme only
-- Room 2.7.1 (schema exported to `app/schemas`, now at version 4), DataStore Preferences
+- Room 2.7.1 (schema exported to `app/schemas`, now at version 5), DataStore Preferences
 - Hilt for dependency injection, Navigation Compose
 - Fonts: Outfit (headings, numbers) and Inter (body), both under the SIL OFL (see `licenses/`)
+- WorkManager 2.10.1 and Hilt-Work 1.2.0 for the daily reminder
 - minSdk 26, target/compile SDK 35, Gradle 8.14.3, AGP 8.10.1
 
 ## Build
@@ -230,16 +350,19 @@ app/src/main/java/com/pik/app/
   data/db       Room entities, DAOs, converters, PikDatabase
   data/repo     repositories (the only thing ViewModels talk to)
   data/prefs    DataStore preferences (onboardingComplete, lastUsedAccountId, lastBackupEpochDay,
-                monthStartDay, expectedIncomeCents, extraPerMonthCents, payoffOrder)
+                monthStartDay, expectedIncomeCents, extraPerMonthCents, payoffOrder, reminderHour)
   domain        pure Kotlin, no Android: Money, AmountInput (keypad), BalanceCalculator, BalanceCheck,
                 ActivityFilter, DateFormats (locale aware), Installments, Period, BudgetCalculator, SafeToSpendCalculator,
-                DebtCalculator / DebtPaymentsDue, PayoffSimulator, Apr
+                DebtCalculator / DebtPaymentsDue, PayoffSimulator, Apr, RecurrenceCalculator / RecurringPlanner,
+                ReminderTime
   backup        backup file model and JSON (de)serialization with validation (org.json only)
+  reminders     ReminderWorker (daily notification), ReminderScheduler (WorkManager), ReminderPermissions
   di            Hilt modules
   ui/theme      colors, fonts, category colors and icons
   ui/components shared composables
   ui/nav        routes, floating bottom bar, nav host
-  ui/screens    firstrun, add, activity, home, plan (Plan, budget editor), settings, placeholder (Debts)
+  ui/screens    firstrun, add, activity, home, plan (Plan, budget editor), debts, recurring (list, edit, confirm
+                sheet), settings
 ```
 
 Layers: Compose screens -> ViewModels (one `StateFlow` UI state per screen) -> repositories -> Room.
@@ -273,9 +396,11 @@ The database holds real data, so `fallbackToDestructiveMigration` is never used.
 `budgets` table through `MIGRATION_1_2` (`data/db/Migrations.kt`), registered in `DatabaseModule`;
 existing tables are untouched. Version 3 adds `debts` and `debt_entries` through `MIGRATION_2_3`, also
 registered in `DatabaseModule`. Version 4 adds the TAEG, loan type and instalment columns to `debts`
-through `MIGRATION_3_4` (add-column only, see "Schema version 4"). `MigrationTest` (instrumented) creates a version 1 database (and a version 2
-one) with an account, a category and a transaction, migrates it (1 -> 3, 2 -> 3, 3 -> 4 and 1 -> 4) and checks that the
-rows survived and that the new tables exist and accept rows. Every future schema change needs a migration
+through `MIGRATION_3_4` (add-column only, see "Schema version 4"). Version 5 adds `recurring_rules` through
+`MIGRATION_4_5` (see "Schema version 5"). `MigrationTest` (instrumented) creates a version 1 database (and a version 2
+one) with an account, a category and a transaction, migrates it (1 -> 3, 2 -> 3, 3 -> 4, 4 -> 5, 1 -> 4 and 1 -> 5) and
+checks that the rows survived and that the new tables exist and accept rows (for `recurring_rules` also the column
+default and the three foreign key actions). Every future schema change needs a migration
 and a test like this. After changing an entity, build once so Room writes the new `app/schemas/.../N.json`
 and commit it: the migration tests read it.
 
@@ -288,20 +413,22 @@ with the Android file picker (Storage Access Framework: no storage permission ne
 plain, readable file you can keep in your cloud storage or email to yourself:
 
 ```
-{ "formatVersion": 4, "appVersion": "0.4.0", "exportedAt": "2026-11-10T09:30:00Z",
+{ "formatVersion": 5, "appVersion": "0.5.0", "exportedAt": "2026-11-10T09:30:00Z",
   "accounts": [...], "categories": [...], "transactions": [...], "budgets": [...],
-  "debts": [...], "debtEntries": [...],
+  "debts": [...], "debtEntries": [...], "recurringRules": [...],
   "settings": { "monthStartDay": 27, "expectedIncomeCents": 250000,
                 "extraPerMonthCents": 5000, "payoffOrder": "HIGHEST_INTEREST" } }
 ```
 
 `formatVersion` 2 added `budgets`, 3 added `debts`, `debtEntries` and the optional `settings` object, 4 added
 `taegBasisPoints`, `type`, `totalInstallments` and `installmentsPaidBefore` to each debt (`aprBasisPoints` is the
-TAN). Restore still accepts `formatVersion` 1 to 3 files (missing debt fields become: no TAEG, type OTHER, no
-instalments); files from version 1 and 2 (the restored database then has no budgets and/or no
+TAN, 5 added the `recurringRules` array (every column of `recurring_rules`). Restore still accepts `formatVersion` 1 to 4
+files (missing debt fields become: no TAEG, type OTHER, no instalments; no recurring rules); files from version 1 and 2 (the restored database then has no budgets and/or no
 debts, and a stray `debtId` in an old file is dropped). A budget must point to an existing category (or have
 a null category for the overall budget), have a non-negative limit, a `yyyy-MM` start period and be unique
-per category and start period. A debt entry must point to a debt in the file, a transaction with a `debtId`
+per category and start period. A recurring rule must point to an account (and category / debt) in the file, have an interval of 1-120, a day of the
+month of 1-31 (or none), a kind that matches its transaction type (INCOME makes INCOME, the rest EXPENSE), and a debt
+exactly when it is a DEBT_PAYMENT. A debt entry must point to a debt in the file, a transaction with a `debtId`
 must point to a debt in the file, debts need a due day 1-28, a rate of 0-100 % and non-negative amounts.
 `settings` (month start day, expected income, extra per month, payoff order) are DataStore values: they are
 written to the file on save and, when the file has them, restored after the database. A file without

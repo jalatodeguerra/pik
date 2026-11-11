@@ -7,6 +7,8 @@ import com.pik.app.domain.DebtEntryType
 import com.pik.app.domain.DebtType
 import com.pik.app.domain.PayoffOrder
 import com.pik.app.domain.Period
+import com.pik.app.domain.RecurrenceUnit
+import com.pik.app.domain.RecurringKind
 import com.pik.app.domain.TransactionType
 import org.json.JSONArray
 import org.json.JSONObject
@@ -17,13 +19,15 @@ import java.time.LocalDate
  * every column of every row. Dates are ISO yyyy-MM-dd, money is integer cents.
  * formatVersion 2 added the "budgets" array; formatVersion 3 added the "debts" and "debtEntries"
  * arrays and the optional "settings" object. formatVersion 4 added taegBasisPoints, type,
- * totalInstallments and installmentsPaidBefore to every debt (aprBasisPoints is the TAN). Version 1 to 3
- * files can still be read: the missing debt fields get their defaults.
+ * totalInstallments and installmentsPaidBefore to every debt (aprBasisPoints is the TAN). formatVersion 5
+ * added the "recurringRules" array. Version 1 to 4 files can still be read: the missing fields and
+ * arrays get their defaults (no recurring rules).
  */
 object BackupJson {
-    const val FORMAT_VERSION = 4
+    const val FORMAT_VERSION = 5
     private const val OLDEST_SUPPORTED_VERSION = 1
     const val MAX_INSTALLMENTS = 1200
+    const val MAX_RECURRING_INTERVAL = 120
     private val PERIOD_KEY = Regex("""\d{4}-(0[1-9]|1[0-2])""")
 
     fun serialize(file: BackupFile): String {
@@ -47,6 +51,12 @@ object BackupJson {
                 JSONArray().also { arr -> file.debtEntries.forEach { arr.put(debtEntryToJson(it)) } },
             )
             file.settings?.let { root.put("settings", settingsToJson(it)) }
+        }
+        if (file.formatVersion >= 5) {
+            root.put(
+                "recurringRules",
+                JSONArray().also { arr -> file.recurringRules.forEach { arr.put(recurringRuleToJson(it)) } },
+            )
         }
         return root.toString(2)
     }
@@ -85,6 +95,11 @@ object BackupJson {
                 } else {
                     emptyList()
                 },
+                recurringRules = if (version >= 5) {
+                    root.getJSONArray("recurringRules").mapObjects(::recurringRuleFromJson)
+                } else {
+                    emptyList()
+                },
                 settings = if (version >= 3 && root.has("settings") && !root.isNull("settings")) {
                     settingsFromJson(root.getJSONObject("settings"))
                 } else {
@@ -120,6 +135,7 @@ object BackupJson {
         ) {
             invalid()
         }
+        if (file.formatVersion < 5 && file.recurringRules.isNotEmpty()) invalid()
         if (file.formatVersion < 3 && (file.debts.isNotEmpty() || file.debtEntries.isNotEmpty() || file.settings != null)) {
             invalid()
         }
@@ -168,6 +184,24 @@ object BackupJson {
                 invalid()
             }
             if (tx.type != TransactionType.ADJUSTMENT && tx.amountCents < 0) invalid()
+        }
+        val ruleIds = file.recurringRules.map { it.id }
+        if (ruleIds.any { it <= 0 } || ruleIds.toSet().size != ruleIds.size) invalid()
+        for (r in file.recurringRules) {
+            if (r.accountId !in accountSet) invalid()
+            if (r.categoryId != null && r.categoryId !in categorySet) invalid()
+            if (r.debtId != null && r.debtId !in debtSet) invalid()
+            if (r.amountCents < 0) invalid()
+            if (r.intervalCount !in 1..MAX_RECURRING_INTERVAL) invalid()
+            if (r.dayOfMonth != null && r.dayOfMonth !in 1..31) invalid()
+            if (r.maxOccurrences != null && r.maxOccurrences < 1) invalid()
+            if (r.occurrencesDone < 0) invalid()
+            // INCOME rules make INCOME transactions, every other kind makes EXPENSE transactions.
+            val expectedType = if (r.kind == RecurringKind.INCOME) TransactionType.INCOME else TransactionType.EXPENSE
+            if (r.transactionType != expectedType) invalid()
+            // A debt payment points to its debt (and has no category); nothing else points to a debt.
+            if ((r.kind == RecurringKind.DEBT_PAYMENT) != (r.debtId != null)) invalid()
+            if (r.kind == RecurringKind.DEBT_PAYMENT && r.categoryId != null) invalid()
         }
         val budgetIds = file.budgets.map { it.id }
         if (budgetIds.any { it <= 0 } || budgetIds.toSet().size != budgetIds.size) invalid()
@@ -262,6 +296,29 @@ object BackupJson {
         put("createdAt", e.createdAt)
     }
 
+    private fun recurringRuleToJson(r: BackupRecurringRule) = JSONObject().apply {
+        put("id", r.id)
+        put("name", r.name)
+        put("kind", r.kind.name)
+        put("transactionType", r.transactionType.name)
+        put("amountCents", r.amountCents)
+        put("accountId", r.accountId)
+        putNullable("categoryId", r.categoryId)
+        putNullable("debtId", r.debtId)
+        put("note", r.note)
+        put("startDate", r.startDate.toString())
+        put("intervalCount", r.intervalCount)
+        put("intervalUnit", r.intervalUnit.name)
+        putNullableInt("dayOfMonth", r.dayOfMonth)
+        put("endDate", r.endDate?.toString() ?: JSONObject.NULL)
+        putNullableInt("maxOccurrences", r.maxOccurrences)
+        put("occurrencesDone", r.occurrencesDone)
+        put("nextDueDate", r.nextDueDate.toString())
+        put("remindDayBefore", r.remindDayBefore)
+        put("active", r.active)
+        put("createdAt", r.createdAt)
+    }
+
     private fun settingsToJson(s: BackupSettings) = JSONObject().apply {
         put("monthStartDay", s.monthStartDay)
         putNullable("expectedIncomeCents", s.expectedIncomeCents)
@@ -346,6 +403,29 @@ object BackupJson {
         amountCents = o.getLong("amountCents"),
         date = LocalDate.parse(o.getString("date")),
         note = o.getString("note"),
+        createdAt = o.getLong("createdAt"),
+    )
+
+    private fun recurringRuleFromJson(o: JSONObject) = BackupRecurringRule(
+        id = o.getLong("id"),
+        name = o.getString("name"),
+        kind = RecurringKind.valueOf(o.getString("kind")),
+        transactionType = TransactionType.valueOf(o.getString("transactionType")),
+        amountCents = o.getLong("amountCents"),
+        accountId = o.getLong("accountId"),
+        categoryId = o.nullableLong("categoryId"),
+        debtId = o.nullableLong("debtId"),
+        note = o.getString("note"),
+        startDate = LocalDate.parse(o.getString("startDate")),
+        intervalCount = o.getInt("intervalCount"),
+        intervalUnit = RecurrenceUnit.valueOf(o.getString("intervalUnit")),
+        dayOfMonth = o.nullableInt("dayOfMonth"),
+        endDate = if (o.isNull("endDate")) null else LocalDate.parse(o.getString("endDate")),
+        maxOccurrences = o.nullableInt("maxOccurrences"),
+        occurrencesDone = o.getInt("occurrencesDone"),
+        nextDueDate = LocalDate.parse(o.getString("nextDueDate")),
+        remindDayBefore = o.getBoolean("remindDayBefore"),
+        active = o.getBoolean("active"),
         createdAt = o.getLong("createdAt"),
     )
 

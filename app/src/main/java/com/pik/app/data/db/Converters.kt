@@ -5,6 +5,8 @@ import com.pik.app.domain.AccountType
 import com.pik.app.domain.CategoryKind
 import com.pik.app.domain.DebtEntryType
 import com.pik.app.domain.DebtType
+import com.pik.app.domain.RecurrenceUnit
+import com.pik.app.domain.RecurringKind
 import com.pik.app.domain.TransactionType
 import java.time.LocalDate
 
@@ -44,4 +46,16 @@ class Converters {
 
     @TypeConverter
     fun stringToDebtType(value: String?): DebtType? = value?.let { DebtType.valueOf(it) }
+
+    @TypeConverter
+    fun recurringKindToString(value: RecurringKind?): String? = value?.name
+
+    @TypeConverter
+    fun stringToRecurringKind(value: String?): RecurringKind? = value?.let { RecurringKind.valueOf(it) }
+
+    @TypeConverter
+    fun recurrenceUnitToString(value: RecurrenceUnit?): String? = value?.name
+
+    @TypeConverter
+    fun stringToRecurrenceUnit(value: String?): RecurrenceUnit? = value?.let { RecurrenceUnit.valueOf(it) }
 }

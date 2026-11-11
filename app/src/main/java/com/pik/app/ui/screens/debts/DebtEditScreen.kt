@@ -45,6 +45,7 @@ import com.pik.app.ui.components.PikFilterChip
 import com.pik.app.ui.components.PikMoneyField
 import com.pik.app.ui.components.PikPrimaryButton
 import com.pik.app.ui.components.PikSecondaryButton
+import com.pik.app.ui.components.PikSwitchRow
 import com.pik.app.ui.components.pikTextFieldColors
 import com.pik.app.ui.theme.PikColors
 import java.time.LocalDate
@@ -87,7 +88,8 @@ fun DebtEditScreen(
             else -> DebtEditForm(
                 existing = state.existing,
                 paymentCount = state.paymentCount,
-                onSave = { input -> viewModel.save(input, onDone = onBack) },
+                hasRule = state.hasRule,
+                onSave = { input, track -> viewModel.save(input, track, onDone = onBack) },
                 onArchive = { archived -> viewModel.setArchived(archived, onDone = onLeaveToList) },
                 onDelete = { viewModel.delete { deleted -> if (deleted) onLeaveToList() } },
                 modifier = Modifier.weight(1f),
@@ -101,7 +103,8 @@ fun DebtEditScreen(
 private fun DebtEditForm(
     existing: DebtEntity?,
     paymentCount: Int,
-    onSave: (DebtInput) -> Unit,
+    hasRule: Boolean,
+    onSave: (DebtInput, trackPayment: Boolean) -> Unit,
     onArchive: (archived: Boolean) -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
@@ -123,6 +126,8 @@ private fun DebtEditForm(
     var minText by remember { mutableStateOf(existing?.let { Money.formatPlain(it.minPaymentCents) }.orEmpty()) }
     var dueDay by remember { mutableStateOf(existing?.dueDay ?: LocalDate.now().dayOfMonth.coerceIn(1, 28)) }
     var pickingDay by remember { mutableStateOf(false) }
+    // New debts start with the switch on; an existing debt shows whether it has a rule.
+    var trackPayment by remember { mutableStateOf(if (existing == null) true else hasRule) }
     var confirmDelete by remember { mutableStateOf(false) }
 
     val balance = Money.parse(balanceText)?.takeIf { it >= 0 }
@@ -275,6 +280,15 @@ private fun DebtEditForm(
                         onClick = { pickingDay = true },
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    if (min != null && min > 0L) {
+                        PikSwitchRow(
+                            label = stringResource(R.string.debt_track_payment),
+                            supporting = stringResource(R.string.debt_track_payment_hint),
+                            checked = trackPayment,
+                            onCheckedChange = { trackPayment = it },
+                            accent = PikColors.Amber,
+                        )
+                    }
                 }
             }
             if (!valid && (name.isNotBlank() || balanceText.isNotBlank() || tanText.isNotBlank() || minText.isNotBlank())) {
@@ -332,6 +346,7 @@ private fun DebtEditForm(
                             totalInstallments = if (tracked) total else null,
                             installmentsPaidBefore = if (tracked) (paidBefore ?: 0) else null,
                         ),
+                        trackPayment && min > 0L,
                     )
                 }
             },

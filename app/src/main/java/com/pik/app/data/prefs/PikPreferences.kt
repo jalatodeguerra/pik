@@ -86,6 +86,13 @@ class PikPreferences @Inject constructor(
         }
     }
 
+    /** Hour of the day (0..23) when the daily reminder should arrive. Default 9 (9:00). */
+    val reminderHour: Flow<Int> = store.data.map { (it[KEY_REMINDER_HOUR] ?: DEFAULT_REMINDER_HOUR).coerceIn(0, 23) }
+
+    suspend fun setReminderHour(hour: Int) {
+        store.edit { it[KEY_REMINDER_HOUR] = hour.coerceIn(0, 23) }
+    }
+
     suspend fun setOnboardingComplete(value: Boolean) {
         store.edit { it[KEY_ONBOARDING_COMPLETE] = value }
     }
@@ -102,5 +109,7 @@ class PikPreferences @Inject constructor(
         val KEY_EXPECTED_INCOME_CENTS = longPreferencesKey("expectedIncomeCents")
         val KEY_EXTRA_PER_MONTH_CENTS = longPreferencesKey("extraPerMonthCents")
         val KEY_PAYOFF_ORDER = stringPreferencesKey("payoffOrder")
+        val KEY_REMINDER_HOUR = intPreferencesKey("reminderHour")
+        const val DEFAULT_REMINDER_HOUR = 9
     }
 }

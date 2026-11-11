@@ -12,14 +12,17 @@ import com.pik.app.data.db.AccountEntity
 import com.pik.app.data.prefs.PikPreferences
 import com.pik.app.data.repo.AccountRepository
 import com.pik.app.data.repo.BackupRepository
+import com.pik.app.data.repo.RecurringRepository
 import com.pik.app.data.repo.TransactionRepository
 import com.pik.app.domain.AccountType
+import com.pik.app.reminders.ReminderScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.SharingStarted
@@ -60,6 +63,10 @@ data class SettingsUiState(
     val lastBackupEpochDay: Long? = null,
     val monthStartDay: Int = 1,
     val expectedIncomeCents: Long? = null,
+    /** Hour of the day (0..23) of the daily reminder. */
+    val reminderHour: Int = 9,
+    /** True when at least one recurring rule has "remind me the day before" on. */
+    val hasReminders: Boolean = false,
     val versionName: String = "",
     val busy: Boolean = false,
     val pendingRestore: PendingRestore? = null,
@@ -72,6 +79,8 @@ class SettingsViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
     private val transactionRepository: TransactionRepository,
     private val backupRepository: BackupRepository,
+    private val recurringRepository: RecurringRepository,
+    private val reminderScheduler: ReminderScheduler,
     private val prefs: PikPreferences,
 ) : ViewModel() {
 
@@ -99,18 +108,35 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    private data class PlanPrefs(
+        val monthStartDay: Int,
+        val expectedIncomeCents: Long?,
+        val reminderHour: Int,
+        val hasReminders: Boolean,
+    )
+
+    private val planPrefs = combine(
+        prefs.monthStartDay,
+        prefs.expectedIncomeCents,
+        prefs.reminderHour,
+        recurringRepository.observeRules().map { rules -> rules.any { it.remindDayBefore && it.active } },
+    ) { startDay, expectedIncome, hour, hasReminders ->
+        PlanPrefs(startDay, expectedIncome, hour, hasReminders)
+    }
+
     val state: StateFlow<SettingsUiState> = combine(
         accountItems,
         prefs.lastBackupEpochDay,
         localState,
-        prefs.monthStartDay,
-        prefs.expectedIncomeCents,
-    ) { accounts, lastBackup, t, startDay, expectedIncome ->
+        planPrefs,
+    ) { accounts, lastBackup, t, plan ->
         SettingsUiState(
             accounts = accounts,
             lastBackupEpochDay = lastBackup,
-            monthStartDay = startDay,
-            expectedIncomeCents = expectedIncome,
+            monthStartDay = plan.monthStartDay,
+            expectedIncomeCents = plan.expectedIncomeCents,
+            reminderHour = plan.reminderHour,
+            hasReminders = plan.hasReminders,
             versionName = versionName,
             busy = t.busy,
             pendingRestore = t.pendingRestore,
@@ -164,6 +190,16 @@ class SettingsViewModel @Inject constructor(
     /** null clears the expected income. */
     fun setExpectedIncome(cents: Long?) {
         viewModelScope.launch { prefs.setExpectedIncomeCents(cents) }
+    }
+
+    // ---- reminders ----
+
+    /** Saves the reminder hour and re-schedules the daily worker with the new delay. */
+    fun setReminderHour(hour: Int) {
+        viewModelScope.launch {
+            prefs.setReminderHour(hour)
+            reminderScheduler.schedule(hour, replace = true)
+        }
     }
 
     // ---- backup ----

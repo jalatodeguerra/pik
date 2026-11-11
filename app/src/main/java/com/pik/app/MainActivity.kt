@@ -20,6 +20,9 @@ class MainActivity : ComponentActivity() {
     /** Incremented each time the "Add expense" app shortcut is used. */
     private var quickAddToken by mutableIntStateOf(0)
 
+    /** Incremented each time a reminder notification is tapped. */
+    private var openRecurringToken by mutableIntStateOf(0)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // After a rotation the same launch intent is still attached: only handle a fresh launch.
@@ -30,7 +33,7 @@ class MainActivity : ComponentActivity() {
         )
         setContent {
             PikTheme {
-                PikRoot(quickAddToken = quickAddToken)
+                PikRoot(quickAddToken = quickAddToken, openRecurringToken = openRecurringToken)
             }
         }
     }
@@ -42,11 +45,17 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
-        if (intent?.action == ACTION_ADD_EXPENSE) quickAddToken++
+        when (intent?.action) {
+            ACTION_ADD_EXPENSE -> quickAddToken++
+            ACTION_OPEN_RECURRING -> openRecurringToken++
+        }
     }
 
     companion object {
         /** Must match the intent action in res/xml/shortcuts.xml. */
         const val ACTION_ADD_EXPENSE = "com.pik.app.action.ADD_EXPENSE"
+
+        /** Set on the intent of the reminder notification (see ReminderWorker). */
+        const val ACTION_OPEN_RECURRING = "com.pik.app.action.OPEN_RECURRING"
     }
 }

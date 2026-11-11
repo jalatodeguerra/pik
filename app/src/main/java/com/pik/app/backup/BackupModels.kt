@@ -5,6 +5,8 @@ import com.pik.app.domain.CategoryKind
 import com.pik.app.domain.DebtEntryType
 import com.pik.app.domain.DebtType
 import com.pik.app.domain.PayoffOrder
+import com.pik.app.domain.RecurrenceUnit
+import com.pik.app.domain.RecurringKind
 import com.pik.app.domain.TransactionType
 import java.time.LocalDate
 
@@ -87,6 +89,30 @@ data class BackupDebtEntry(
     val createdAt: Long,
 )
 
+/** A recurring rule (formatVersion 5). Every column of the recurring_rules table. */
+data class BackupRecurringRule(
+    val id: Long,
+    val name: String,
+    val kind: RecurringKind,
+    val transactionType: TransactionType,
+    val amountCents: Long,
+    val accountId: Long,
+    val categoryId: Long?,
+    val debtId: Long?,
+    val note: String,
+    val startDate: LocalDate,
+    val intervalCount: Int,
+    val intervalUnit: RecurrenceUnit,
+    val dayOfMonth: Int?,
+    val endDate: LocalDate?,
+    val maxOccurrences: Int?,
+    val occurrencesDone: Int,
+    val nextDueDate: LocalDate,
+    val remindDayBefore: Boolean,
+    val active: Boolean,
+    val createdAt: Long,
+)
+
 /** The DataStore settings that belong to the data (not the one-off flags like onboarding). */
 data class BackupSettings(
     val monthStartDay: Int,
@@ -108,7 +134,9 @@ data class BackupFile(
     /** Empty for formatVersion 1 and 2 files (they have no debts). */
     val debts: List<BackupDebt> = emptyList(),
     val debtEntries: List<BackupDebtEntry> = emptyList(),
-    /** Optional (formatVersion 3 only). null = leave the current settings alone on restore. */
+    /** Empty for formatVersion 1 to 4 files (they have no recurring rules). */
+    val recurringRules: List<BackupRecurringRule> = emptyList(),
+    /** Optional (formatVersion 3 and later). null = leave the current settings alone on restore. */
     val settings: BackupSettings? = null,
 )
 

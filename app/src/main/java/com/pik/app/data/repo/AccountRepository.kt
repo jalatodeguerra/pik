@@ -55,9 +55,9 @@ class AccountRepository @Inject constructor(
         return true
     }
 
-    /** Deletes only an account that has no transactions. Returns false when it is in use. */
+    /** Deletes only an account that has no transactions and no recurring rule. Returns false when it is in use. */
     suspend fun deleteIfUnused(id: Long): Boolean {
-        if (dao.transactionCount(id) > 0) return false
+        if (dao.transactionCount(id) > 0 || dao.recurringRuleCount(id) > 0) return false
         dao.deleteById(id)
         return true
     }

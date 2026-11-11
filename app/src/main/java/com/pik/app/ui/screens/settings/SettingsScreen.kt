@@ -53,12 +53,14 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pik.app.R
 import com.pik.app.domain.AccountType
 import com.pik.app.domain.DateFormats
 import com.pik.app.domain.Money
 import com.pik.app.domain.Period
+import com.pik.app.reminders.ReminderPermissions
 import com.pik.app.ui.components.CheckBalanceDialog
 import com.pik.app.ui.components.IconCircle
 import com.pik.app.ui.components.PikBackTopBar
@@ -116,6 +118,31 @@ private fun openLanguageSettings(context: android.content.Context) {
     }
 }
 
+/** The app's notification settings (to allow notifications again after they were denied). */
+private fun openNotificationSettings(context: android.content.Context) {
+    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+    try {
+        context.startActivity(intent)
+    } catch (e: android.content.ActivityNotFoundException) {
+        openAppDetailsSettings(context)
+    }
+}
+
+/**
+ * The app's details screen in the system settings. On OnePlus and other phones that stop apps in the
+ * background, "Battery" in there lets the user allow background activity so reminders can arrive.
+ */
+private fun openAppDetailsSettings(context: android.content.Context) {
+    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+        .setData(Uri.fromParts("package", context.packageName, null))
+    try {
+        context.startActivity(intent)
+    } catch (e: android.content.ActivityNotFoundException) {
+        // no settings screen to show: nothing to do
+    }
+}
+
 /** Which account the editor dialog works on: null item means "new account". */
 private data class AccountEditorTarget(val item: SettingsAccount?)
 
@@ -140,7 +167,14 @@ fun SettingsScreen(
     var checking by remember { mutableStateOf<SettingsAccount?>(null) }
     var editingMonthStart by remember { mutableStateOf(false) }
     var editingIncome by remember { mutableStateOf(false) }
+    var editingReminderHour by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    // The notification permission can change in the system settings: look again when the screen resumes.
+    var notificationsAllowed by remember { mutableStateOf(ReminderPermissions.canNotify(context)) }
+    LifecycleResumeEffect(Unit) {
+        notificationsAllowed = ReminderPermissions.canNotify(context)
+        onPauseOrDispose { }
+    }
 
     val createLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json"),
@@ -212,6 +246,51 @@ fun SettingsScreen(
                         value = state.expectedIncomeCents?.let { Money.format(it) }
                             ?: stringResource(R.string.settings_expected_income_not_set),
                         onClick = { editingIncome = true },
+                    )
+                }
+
+                SectionTitle(stringResource(R.string.settings_reminders))
+                PikCard(modifier = Modifier.fillMaxWidth()) {
+                    ValueRow(
+                        label = stringResource(R.string.settings_reminder_time),
+                        value = stringResource(R.string.settings_reminder_time_value, state.reminderHour),
+                        onClick = { editingReminderHour = true },
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_reminder_time_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = PikColors.TextSecondary,
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                    )
+                    if (state.hasReminders && !notificationsAllowed) {
+                        HorizontalDivider(color = PikColors.Outline)
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.settings_notifications_off),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = PikColors.Amber,
+                            )
+                            PikSecondaryButton(
+                                text = stringResource(R.string.settings_notifications_allow),
+                                onClick = { openNotificationSettings(context) },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
+                    HorizontalDivider(color = PikColors.Outline)
+                    ValueRow(
+                        label = stringResource(R.string.settings_reminders_not_arriving),
+                        value = "",
+                        onClick = { openAppDetailsSettings(context) },
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_reminders_not_arriving_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = PikColors.TextSecondary,
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
                     )
                 }
 
@@ -332,6 +411,17 @@ fun SettingsScreen(
             onSave = { day ->
                 viewModel.setMonthStartDay(day)
                 editingMonthStart = false
+            },
+        )
+    }
+
+    if (editingReminderHour) {
+        ReminderHourDialog(
+            current = state.reminderHour,
+            onDismiss = { editingReminderHour = false },
+            onSave = { hour ->
+                viewModel.setReminderHour(hour)
+                editingReminderHour = false
             },
         )
     }
@@ -479,6 +569,36 @@ private fun MonthStartDialog(current: Int, onDismiss: () -> Unit, onSave: (Int) 
         ) {
             for (day in Period.MIN_START_DAY..Period.MAX_START_DAY) {
                 PikFilterChip(label = day.toString(), selected = day == selected, onClick = { selected = day })
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ReminderHourDialog(current: Int, onDismiss: () -> Unit, onSave: (Int) -> Unit) {
+    var selected by remember { mutableStateOf(current) }
+    PikDialog(
+        title = stringResource(R.string.settings_reminder_time),
+        onDismiss = onDismiss,
+        confirmLabel = stringResource(R.string.action_save),
+        onConfirm = { onSave(selected) },
+    ) {
+        Text(
+            text = stringResource(R.string.settings_reminder_time_dialog_hint),
+            style = MaterialTheme.typography.bodyMedium,
+            color = PikColors.TextSecondary,
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            for (hour in 0..23) {
+                PikFilterChip(
+                    label = stringResource(R.string.settings_reminder_time_value, hour),
+                    selected = hour == selected,
+                    onClick = { selected = hour },
+                )
             }
         }
     }

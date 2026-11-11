@@ -5,6 +5,8 @@ import com.pik.app.domain.CategoryKind
 import com.pik.app.domain.DebtEntryType
 import com.pik.app.domain.DebtType
 import com.pik.app.domain.PayoffOrder
+import com.pik.app.domain.RecurrenceUnit
+import com.pik.app.domain.RecurringKind
 import com.pik.app.domain.TransactionType
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -299,7 +301,7 @@ class BackupJsonTest {
 
     @Test
     fun rejectsUnsupportedVersion() {
-        val text = BackupJson.serialize(sample()).replace("\"formatVersion\": 4", "\"formatVersion\": 5")
+        val text = BackupJson.serialize(sample()).replace("\"formatVersion\": 4", "\"formatVersion\": 6")
         assertEquals(BackupError.UNSUPPORTED_VERSION, errorOf(text))
     }
 
@@ -416,5 +418,153 @@ class BackupJsonTest {
         val badType = JSONObject(BackupJson.serialize(s))
         badType.getJSONArray("debts").getJSONObject(0).put("type", "SPACESHIP")
         assertEquals(BackupError.INVALID_DATA, errorOf(badType.toString()))
+    }
+
+    // ---- format version 5: recurring rules ----
+
+    private fun sample5(): BackupFile = sample().copy(
+        formatVersion = 5,
+        recurringRules = listOf(
+            BackupRecurringRule(
+                id = 1, name = "Rent \"Via Roma\"", kind = RecurringKind.BILL,
+                transactionType = TransactionType.EXPENSE, amountCents = 65_000, accountId = 5, categoryId = 3,
+                debtId = null, note = "è affitto", startDate = LocalDate.of(2026, 1, 31), intervalCount = 1,
+                intervalUnit = RecurrenceUnit.MONTH, dayOfMonth = 31, endDate = LocalDate.of(2027, 12, 31),
+                maxOccurrences = null, occurrencesDone = 10, nextDueDate = LocalDate.of(2026, 11, 30),
+                remindDayBefore = true, active = true, createdAt = 50,
+            ),
+            BackupRecurringRule(
+                id = 2, name = "Car loan", kind = RecurringKind.DEBT_PAYMENT,
+                transactionType = TransactionType.EXPENSE, amountCents = 25_000, accountId = 1, categoryId = null,
+                debtId = 1, note = "", startDate = LocalDate.of(2026, 11, 15), intervalCount = 1,
+                intervalUnit = RecurrenceUnit.MONTH, dayOfMonth = 15, endDate = null, maxOccurrences = null,
+                occurrencesDone = 0, nextDueDate = LocalDate.of(2026, 11, 15), remindDayBefore = false,
+                active = false, createdAt = 51,
+            ),
+            BackupRecurringRule(
+                id = 3, name = "Salary", kind = RecurringKind.INCOME, transactionType = TransactionType.INCOME,
+                amountCents = 200_000, accountId = 5, categoryId = 9, debtId = null, note = "",
+                startDate = LocalDate.of(2026, 11, 2), intervalCount = 2, intervalUnit = RecurrenceUnit.WEEK,
+                dayOfMonth = null, endDate = null, maxOccurrences = 26, occurrencesDone = 3,
+                nextDueDate = LocalDate.of(2026, 12, 14), remindDayBefore = false, active = true, createdAt = 52,
+            ),
+        ),
+    )
+
+    private fun expectInvalid(file: BackupFile) {
+        try {
+            BackupJson.validate(file)
+            fail("expected a BackupFormatException for $file")
+        } catch (e: BackupFormatException) {
+            assertEquals(BackupError.INVALID_DATA, e.error)
+        }
+    }
+
+    @Test
+    fun version5RoundTripKeepsRecurringRules() {
+        val original = sample5()
+        val parsed = BackupJson.parse(BackupJson.serialize(original))
+        assertEquals(original, parsed)
+        assertEquals(3, parsed.recurringRules.size)
+    }
+
+    @Test
+    fun version5FieldsAreWritten() {
+        val root = JSONObject(BackupJson.serialize(sample5()))
+        assertEquals(5, root.getInt("formatVersion"))
+        val rules = root.getJSONArray("recurringRules")
+        assertEquals(3, rules.length())
+        val rent = rules.getJSONObject(0)
+        assertEquals("BILL", rent.getString("kind"))
+        assertEquals("2026-01-31", rent.getString("startDate"))
+        assertEquals("2027-12-31", rent.getString("endDate"))
+        assertTrue(rent.isNull("debtId"))
+        assertTrue(rent.isNull("maxOccurrences"))
+        assertEquals(true, rent.getBoolean("remindDayBefore"))
+        val salary = rules.getJSONObject(2)
+        assertEquals("WEEK", salary.getString("intervalUnit"))
+        assertTrue(salary.isNull("dayOfMonth"))
+        assertTrue(salary.isNull("endDate"))
+        assertEquals(26, salary.getInt("maxOccurrences"))
+    }
+
+    @Test
+    fun version4FileStillRestoresWithoutRecurringRules() {
+        val text = BackupJson.serialize(sample())
+        assertTrue(!JSONObject(text).has("recurringRules"))
+        val parsed = BackupJson.parse(text)
+        assertEquals(4, parsed.formatVersion)
+        assertTrue(parsed.recurringRules.isEmpty())
+    }
+
+    @Test
+    fun oldModelsMustNotCarryRecurringRules() {
+        expectInvalid(sample5().copy(formatVersion = 4))
+    }
+
+    @Test
+    fun version5FileWithoutTheRecurringArrayIsInvalid() {
+        val root = JSONObject(BackupJson.serialize(sample5()))
+        root.remove("recurringRules")
+        assertEquals(BackupError.INVALID_DATA, errorOf(root.toString()))
+    }
+
+    @Test
+    fun version5WithNoRulesRoundTrips() {
+        val empty = sample5().copy(recurringRules = emptyList())
+        assertEquals(empty, BackupJson.parse(BackupJson.serialize(empty)))
+    }
+
+    @Test
+    fun rejectsBadRecurringRules() {
+        val s = sample5()
+        val rent = s.recurringRules[0]
+        val debtRule = s.recurringRules[1]
+        val salary = s.recurringRules[2]
+        fun withRules(vararg rules: BackupRecurringRule) = s.copy(recurringRules = rules.toList())
+        // references to rows that are not in the file
+        expectInvalid(withRules(rent.copy(accountId = 99)))
+        expectInvalid(withRules(rent.copy(categoryId = 99)))
+        expectInvalid(withRules(rent.copy(debtId = 99)))
+        expectInvalid(withRules(debtRule.copy(debtId = 99)))
+        // numbers out of range
+        expectInvalid(withRules(rent.copy(intervalCount = 0)))
+        expectInvalid(withRules(rent.copy(intervalCount = 121)))
+        expectInvalid(withRules(rent.copy(dayOfMonth = 0)))
+        expectInvalid(withRules(rent.copy(dayOfMonth = 32)))
+        expectInvalid(withRules(rent.copy(maxOccurrences = 0)))
+        expectInvalid(withRules(rent.copy(occurrencesDone = -1)))
+        expectInvalid(withRules(rent.copy(amountCents = -1)))
+        // kind and transaction type / debt must agree
+        expectInvalid(withRules(rent.copy(transactionType = TransactionType.INCOME)))
+        expectInvalid(withRules(salary.copy(transactionType = TransactionType.EXPENSE)))
+        expectInvalid(withRules(rent.copy(debtId = 1))) // a bill with a debt
+        expectInvalid(withRules(debtRule.copy(debtId = null))) // a debt payment without a debt
+        expectInvalid(withRules(debtRule.copy(categoryId = 3))) // a debt payment has no category
+        // ids
+        expectInvalid(withRules(rent.copy(id = 0)))
+        expectInvalid(withRules(rent, salary.copy(id = rent.id)))
+        // the valid ones pass
+        BackupJson.validate(s)
+    }
+
+    @Test
+    fun rejectsBadRecurringEnumsAndDates() {
+        val badKind = JSONObject(BackupJson.serialize(sample5()))
+        badKind.getJSONArray("recurringRules").getJSONObject(0).put("kind", "LOTTERY")
+        assertEquals(BackupError.INVALID_DATA, errorOf(badKind.toString()))
+        val badDate = JSONObject(BackupJson.serialize(sample5()))
+        badDate.getJSONArray("recurringRules").getJSONObject(0).put("nextDueDate", "31/11/2026")
+        assertEquals(BackupError.INVALID_DATA, errorOf(badDate.toString()))
+        val badUnit = JSONObject(BackupJson.serialize(sample5()))
+        badUnit.getJSONArray("recurringRules").getJSONObject(1).put("intervalUnit", "DECADE")
+        assertEquals(BackupError.INVALID_DATA, errorOf(badUnit.toString()))
+    }
+
+    @Test
+    fun unsupportedFutureVersionStillRejected() {
+        val root = JSONObject(BackupJson.serialize(sample5()))
+        root.put("formatVersion", 6)
+        assertEquals(BackupError.UNSUPPORTED_VERSION, errorOf(root.toString()))
     }
 }

@@ -24,5 +24,13 @@ object Routes {
     fun debtAdd(): String = "debt-edit"
     fun debtEdit(debtId: Long): String = "debt-edit?$ARG_DEBT_ID=$debtId"
 
+    const val RECURRING = "recurring"
+
+    const val ARG_RULE_ID = "ruleId"
+    const val RECURRING_EDIT = "recurring-edit?$ARG_RULE_ID={$ARG_RULE_ID}"
+
+    fun recurringAdd(): String = "recurring-edit"
+    fun recurringEdit(ruleId: Long): String = "recurring-edit?$ARG_RULE_ID=$ruleId"
+
     val tabs: Set<String> = setOf(HOME, ACTIVITY, PLAN, DEBTS)
 }

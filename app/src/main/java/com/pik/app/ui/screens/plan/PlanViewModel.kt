@@ -6,12 +6,14 @@ import com.pik.app.data.prefs.PikPreferences
 import com.pik.app.data.repo.BudgetRepository
 import com.pik.app.data.repo.CategoryRepository
 import com.pik.app.data.repo.DebtRepository
+import com.pik.app.data.repo.RecurringRepository
 import com.pik.app.data.repo.TransactionRepository
 import com.pik.app.domain.BalanceCalculator
 import com.pik.app.domain.BudgetCalculator
 import com.pik.app.domain.BudgetProgress
 import com.pik.app.domain.DebtPaymentsDue
 import com.pik.app.domain.Period
+import com.pik.app.domain.RecurringPlanner
 import com.pik.app.domain.SafeToSpend
 import com.pik.app.domain.SafeToSpendCalculator
 import com.pik.app.domain.TxFacts
@@ -68,6 +70,7 @@ class PlanViewModel @Inject constructor(
     private val budgetRepository: BudgetRepository,
     private val categoryRepository: CategoryRepository,
     debtRepository: DebtRepository,
+    recurringRepository: RecurringRepository,
     prefs: PikPreferences,
 ) : ViewModel() {
 
@@ -114,7 +117,8 @@ class PlanViewModel @Inject constructor(
             budgetRepository.observeBudgets(),
             categoryRepository.observeAll(),
             debtInfo,
-        ) { rows, budgets, categories, debts ->
+            recurringRepository.observeRules(),
+        ) { rows, budgets, categories, debts, rules ->
             val facts = rows.map {
                 TxFacts(it.type, it.amountCents, it.accountId, it.toAccountId, it.categoryId, it.debtId)
             }
@@ -131,12 +135,17 @@ class PlanViewModel @Inject constructor(
                 incomeCents = totals.incomeCents,
                 spentCents = totals.expenseCents,
                 safeToSpend = if (sel.isCurrent) {
+                    val stillDue = RecurringPlanner.stillDue(
+                        rules.map { it.toFacts() }, sel.today, sel.period.endInclusive,
+                    )
                     SafeToSpendCalculator.compute(
                         expectedIncomeCents = sel.expectedIncomeCents,
                         incomeReceivedCents = totals.incomeCents,
                         spentCents = totals.expenseCents,
                         daysLeft = sel.period.daysLeft(sel.today),
                         debtPaymentsDueCents = DebtPaymentsDue.compute(debts.inputs, facts, debts.extraPerMonthCents),
+                        billsStillDueCents = stillDue.billsCents,
+                        incomeStillDueCents = stillDue.incomeCents,
                     )
                 } else {
                     null

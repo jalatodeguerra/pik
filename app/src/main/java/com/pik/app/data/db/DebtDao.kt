@@ -103,6 +103,20 @@ interface DebtDao {
     )
     fun observeLastRataDays(): Flow<List<DebtSum>>
 
+    /**
+     * How many payments since [fromEpochDay] count as a rata for the debt (EXPENSE with debtId, amount >= 90 % of
+     * minPaymentCents). Used to avoid asking again for an instalment that was already paid this month.
+     */
+    @Query(
+        """
+        SELECT COUNT(*)
+        FROM transactions t INNER JOIN debts d ON d.id = t.debtId
+        WHERE t.debtId = :debtId AND t.type = 'EXPENSE' AND t.date >= :fromEpochDay
+          AND d.minPaymentCents > 0 AND t.amountCents * 10 >= d.minPaymentCents * 9
+        """,
+    )
+    suspend fun rataPaymentCountSince(debtId: Long, fromEpochDay: Long): Int
+
     @Query("SELECT COALESCE(SUM(amountCents), 0) FROM debt_entries WHERE debtId = :debtId")
     suspend fun entriesSum(debtId: Long): Long
 

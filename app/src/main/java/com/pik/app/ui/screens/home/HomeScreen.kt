@@ -47,6 +47,11 @@ import com.pik.app.ui.components.SectionTitle
 import com.pik.app.ui.components.TransactionListItem
 import com.pik.app.ui.theme.PikColors
 import com.pik.app.ui.theme.PikNumberStyles
+import com.pik.app.ui.screens.recurring.ConfirmDueSheet
+import com.pik.app.ui.screens.recurring.DueItemUi
+import com.pik.app.ui.screens.recurring.DueRow
+import com.pik.app.ui.screens.recurring.RecurringLinkCard
+import java.time.LocalDate
 
 @Composable
 fun HomeScreen(
@@ -56,6 +61,7 @@ fun HomeScreen(
     onSettingsClick: () -> Unit,
     onPlanClick: () -> Unit,
     onDebtsClick: () -> Unit,
+    onRecurringClick: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -66,7 +72,7 @@ fun HomeScreen(
     }
     HomeContent(
         state, onAddClick, onSeeAll, onTransactionClick, onSettingsClick, onPlanClick, onDebtsClick,
-        viewModel::checkBalance,
+        onRecurringClick, viewModel::checkBalance, viewModel::confirmDue, viewModel::skipDue,
     )
 }
 
@@ -79,7 +85,10 @@ private fun HomeContent(
     onSettingsClick: () -> Unit,
     onPlanClick: () -> Unit,
     onDebtsClick: () -> Unit,
+    onRecurringClick: () -> Unit,
     onCheckBalance: (accountId: Long, realCents: Long, note: String) -> Unit,
+    onConfirmDue: (ruleId: Long, amountCents: Long, accountId: Long, date: LocalDate) -> Unit,
+    onSkipDue: (ruleId: Long) -> Unit,
 ) {
     val periodLabel = state.period.label()
     val headerLabel = if (state.period.startDay == 1) {
@@ -88,6 +97,22 @@ private fun HomeContent(
         periodLabel
     }
     var checking by remember { mutableStateOf<AccountWithBalance?>(null) }
+    var confirmingDue by remember { mutableStateOf<DueItemUi?>(null) }
+    confirmingDue?.let { item ->
+        ConfirmDueSheet(
+            item = item,
+            accounts = state.accounts.map { it.account },
+            onDismiss = { confirmingDue = null },
+            onConfirm = { amount, accountId, date ->
+                onConfirmDue(item.ruleId, amount, accountId, date)
+                confirmingDue = null
+            },
+            onSkip = {
+                onSkipDue(item.ruleId)
+                confirmingDue = null
+            },
+        )
+    }
     CheckBalanceHost(
         checking = checking,
         onDismiss = { checking = null },
@@ -185,6 +210,24 @@ private fun HomeContent(
             }
         }
         item { SafeToSpendCard(state.safeToSpend, onClick = onPlanClick) }
+        if (state.due.isNotEmpty()) {
+            item {
+                DueCard(
+                    items = state.due,
+                    today = state.today,
+                    onItemClick = { confirmingDue = it },
+                    onSeeAll = onRecurringClick,
+                )
+            }
+        }
+        item {
+            RecurringLinkCard(
+                subtitle = stringResource(
+                    if (state.recurringCount > 0) R.string.recurring_link_hint else R.string.recurring_link_hint_empty,
+                ),
+                onClick = onRecurringClick,
+            )
+        }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MonthFlowCard(
@@ -276,6 +319,48 @@ private fun HomeContent(
         }
     }
 }
+
+/** "Due soon" (or "Overdue" when something is late): the first few unconfirmed recurring items. */
+@Composable
+private fun DueCard(items: List<DueItemUi>, today: LocalDate, onItemClick: (DueItemUi) -> Unit, onSeeAll: () -> Unit) {
+    val hasOverdue = items.any { it.isOverdue }
+    val shown = items.take(DUE_ON_HOME)
+    PikCard(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 4.dp, top = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = stringResource(if (hasOverdue) R.string.home_due_overdue else R.string.home_due_soon),
+                style = MaterialTheme.typography.titleMedium,
+                color = if (hasOverdue) PikColors.Coral else PikColors.Amber,
+            )
+            TextButton(
+                onClick = onSeeAll,
+                colors = ButtonDefaults.textButtonColors(contentColor = PikColors.Lime),
+            ) {
+                Text(stringResource(R.string.home_see_all))
+            }
+        }
+        shown.forEachIndexed { index, item ->
+            if (index > 0) HorizontalDivider(color = PikColors.Outline)
+            DueRow(item, today, onClick = { onItemClick(item) })
+        }
+        if (items.size > shown.size) {
+            Text(
+                text = stringResource(R.string.home_due_more, items.size - shown.size),
+                style = MaterialTheme.typography.bodySmall,
+                color = PikColors.TextSecondary,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+            )
+        }
+    }
+}
+
+private const val DUE_ON_HOME = 3
 
 /** Same number as the Plan tab (SafeToSpendCalculator); tapping opens Plan. */
 @Composable

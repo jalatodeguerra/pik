@@ -12,6 +12,8 @@ data class SafeToSpend(
     val safeCents: Long,
     val daysLeft: Int,
     val perDayCents: Long,
+    /** Recurring income still expected later in the period (already inside [plannedIncomeCents]). */
+    val incomeStillDueCents: Long = 0L,
 ) {
     val isOverSpent: Boolean get() = safeCents < 0
 }
@@ -19,14 +21,19 @@ data class SafeToSpend(
 /**
  * The single definition of "safe to spend", used by Home and Plan:
  *
- *   plannedIncome = max(expected monthly income, income actually received this period)
+ *   plannedIncome = max(expected monthly income, income received this period + incomeStillDue)
  *   safeToSpend   = plannedIncome - spentSoFar - billsStillDue - debtPaymentsDue
  *   perDay        = safeToSpend / daysLeft   (0 when safeToSpend <= 0)
  *
  * spentSoFar is EXPENSE transactions of the period (transfers and adjustments excluded). Debt
  * payments are EXPENSE transactions too, so what is already paid is inside spentSoFar; the part
- * still to pay this period is [DebtPaymentsDue] (see there). Bills are 0 until recurring
- * transactions exist.
+ * still to pay this period is [DebtPaymentsDue] (see there).
+ *
+ * billsStillDue is the sum of the BILL and SUBSCRIPTION occurrences dated from today to the end of
+ * the period that are not confirmed or skipped yet; incomeStillDue is the same for INCOME rules
+ * (see [RecurringPlanner.stillDue]). DEBT_PAYMENT rules are never part of billsStillDue, because
+ * debts are already counted through debtPaymentsDue. A confirmed bill is an expense and moves from
+ * "still due" to spentSoFar, so it is never counted twice.
  */
 object SafeToSpendCalculator {
     fun compute(
@@ -36,8 +43,9 @@ object SafeToSpendCalculator {
         daysLeft: Int,
         billsStillDueCents: Long = 0L,
         debtPaymentsDueCents: Long = 0L,
+        incomeStillDueCents: Long = 0L,
     ): SafeToSpend {
-        val planned = maxOf(expectedIncomeCents ?: 0L, incomeReceivedCents)
+        val planned = maxOf(expectedIncomeCents ?: 0L, incomeReceivedCents + incomeStillDueCents)
         val safe = planned - spentCents - billsStillDueCents - debtPaymentsDueCents
         val days = daysLeft.coerceAtLeast(1)
         val perDay = if (safe > 0) safe / days else 0L
@@ -49,6 +57,7 @@ object SafeToSpendCalculator {
             safeCents = safe,
             daysLeft = daysLeft,
             perDayCents = perDay,
+            incomeStillDueCents = incomeStillDueCents,
         )
     }
 }

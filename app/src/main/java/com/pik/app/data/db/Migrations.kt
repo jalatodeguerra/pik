@@ -74,3 +74,44 @@ val MIGRATION_3_4: Migration = object : Migration(3, 4) {
         db.execSQL("ALTER TABLE `debts` ADD COLUMN `installmentsPaidBefore` INTEGER")
     }
 }
+
+/**
+ * Version 4 -> 5: adds the recurring_rules table and its three indices. Existing tables are untouched
+ * (transactions.recurringId already exists and has no foreign key). The SQL must match what Room
+ * generates for [RecurringRuleEntity] (see app/schemas/.../5.json): columns in the order of the
+ * entity, occurrencesDone has DEFAULT 0, and the three foreign keys are RESTRICT (account),
+ * SET NULL (category) and CASCADE (debt).
+ */
+val MIGRATION_4_5: Migration = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `recurring_rules` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`name` TEXT NOT NULL, " +
+                "`kind` TEXT NOT NULL, " +
+                "`transactionType` TEXT NOT NULL, " +
+                "`amountCents` INTEGER NOT NULL, " +
+                "`accountId` INTEGER NOT NULL, " +
+                "`categoryId` INTEGER, " +
+                "`debtId` INTEGER, " +
+                "`note` TEXT NOT NULL, " +
+                "`startDate` INTEGER NOT NULL, " +
+                "`intervalCount` INTEGER NOT NULL, " +
+                "`intervalUnit` TEXT NOT NULL, " +
+                "`dayOfMonth` INTEGER, " +
+                "`endDate` INTEGER, " +
+                "`maxOccurrences` INTEGER, " +
+                "`occurrencesDone` INTEGER NOT NULL DEFAULT 0, " +
+                "`nextDueDate` INTEGER NOT NULL, " +
+                "`remindDayBefore` INTEGER NOT NULL, " +
+                "`active` INTEGER NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL, " +
+                "FOREIGN KEY(`accountId`) REFERENCES `accounts`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT , " +
+                "FOREIGN KEY(`categoryId`) REFERENCES `categories`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL , " +
+                "FOREIGN KEY(`debtId`) REFERENCES `debts`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_recurring_rules_accountId` ON `recurring_rules` (`accountId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_recurring_rules_categoryId` ON `recurring_rules` (`categoryId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_recurring_rules_debtId` ON `recurring_rules` (`debtId`)")
+    }
+}

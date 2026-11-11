@@ -40,6 +40,7 @@ import com.pik.app.ui.components.PikPrimaryButton
 import com.pik.app.ui.components.PikProgressBar
 import com.pik.app.ui.components.PikSecondaryButton
 import com.pik.app.ui.components.SectionTitle
+import com.pik.app.ui.screens.recurring.RecurringLinkCard
 import com.pik.app.ui.theme.CategoryStyle
 import com.pik.app.ui.theme.PikColors
 import com.pik.app.ui.theme.PikNumberStyles
@@ -54,6 +55,7 @@ internal fun BudgetStatus.color(): Color = when (this) {
 @Composable
 fun PlanScreen(
     onSetBudgets: () -> Unit,
+    onRecurringClick: () -> Unit,
     viewModel: PlanViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -67,6 +69,7 @@ fun PlanScreen(
         onPrevious = viewModel::previousPeriod,
         onNext = viewModel::nextPeriod,
         onSetBudgets = onSetBudgets,
+        onRecurringClick = onRecurringClick,
     )
 }
 
@@ -76,6 +79,7 @@ private fun PlanContent(
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onSetBudgets: () -> Unit,
+    onRecurringClick: () -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),
@@ -89,6 +93,15 @@ private fun PlanContent(
             item { SafeToSpendCard(safe) }
         } else if (!state.isLoading) {
             item { TotalsCard(state) }
+        }
+
+        if (state.isCurrent && !state.isLoading) {
+            item {
+                RecurringLinkCard(
+                    subtitle = stringResource(R.string.recurring_link_hint_plan),
+                    onClick = onRecurringClick,
+                )
+            }
         }
 
         state.overall?.let { overall ->
@@ -219,6 +232,22 @@ private fun SafeToSpendCard(safe: SafeToSpend) {
                     text = stringResource(R.string.safe_debts_set_aside, Money.format(safe.debtPaymentsDueCents)),
                     style = MaterialTheme.typography.bodySmall,
                     color = PikColors.Blue,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+            if (safe.billsStillDueCents > 0L) {
+                Text(
+                    text = stringResource(R.string.safe_bills_set_aside, Money.format(safe.billsStillDueCents)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = PikColors.Amber,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+            if (safe.incomeStillDueCents > 0L) {
+                Text(
+                    text = stringResource(R.string.safe_income_expected, Money.format(safe.incomeStillDueCents)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = PikColors.Amber,
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }

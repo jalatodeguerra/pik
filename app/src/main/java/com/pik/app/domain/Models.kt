@@ -26,3 +26,19 @@ enum class DebtType {
 
     val hasInstalments: Boolean get() = this != FAMILY_FRIENDS && this != OTHER
 }
+
+/**
+ * What a recurring rule is. Stored in Room by its name. BILL, SUBSCRIPTION and DEBT_PAYMENT are
+ * outgoing (EXPENSE transactions), INCOME is incoming. A DEBT_PAYMENT rule belongs to a debt.
+ */
+enum class RecurringKind {
+    BILL, SUBSCRIPTION, INCOME, DEBT_PAYMENT;
+
+    val isOutgoing: Boolean get() = this != INCOME
+
+    /** Bills and subscriptions are what "billsStillDue" in safe to spend is made of. */
+    val isBill: Boolean get() = this == BILL || this == SUBSCRIPTION
+}
+
+/** The unit of "every N units" of a recurring rule. Stored in Room by its name. */
+enum class RecurrenceUnit { WEEK, MONTH, YEAR }

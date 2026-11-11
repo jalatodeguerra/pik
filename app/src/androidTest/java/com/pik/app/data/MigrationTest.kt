@@ -8,6 +8,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.pik.app.data.db.MIGRATION_1_2
 import com.pik.app.data.db.MIGRATION_2_3
 import com.pik.app.data.db.MIGRATION_3_4
+import com.pik.app.data.db.MIGRATION_4_5
 import com.pik.app.data.db.PikDatabase
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -37,7 +38,7 @@ class MigrationTest {
             ApplicationProvider.getApplicationContext(),
             PikDatabase::class.java,
             TEST_DB,
-        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
         // Opening validates the schema against the current entities.
         db.openHelper.writableDatabase
         db.close()
@@ -290,6 +291,132 @@ class MigrationTest {
             assertTrue(it.moveToFirst())
             assertEquals("OTHER", it.getString(0))
         }
+    }
+
+    @Test
+    fun migrate4To5KeepsEverythingAndAddsRecurringRules() {
+        helper.createDatabase(TEST_DB, 4).apply {
+            insertBaseRows(this)
+            insertVersion3Debt(this)
+            // a transaction that already carries a recurringId (the column exists since version 1)
+            execSQL(
+                "INSERT INTO transactions (id, type, amountCents, date, accountId, toAccountId, categoryId, " +
+                    "note, debtId, recurringId, createdAt, updatedAt) " +
+                    "VALUES (4, 'EXPENSE', 900, 20410, 1, NULL, 7, 'Old', NULL, 77, 3, 3)",
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(TEST_DB, 5, true, MIGRATION_4_5)
+
+        assertBaseRowsSurvived(db)
+        assertOldDebtSurvived(db)
+        db.query("SELECT recurringId FROM transactions WHERE id = 4").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(77L, it.getLong(0))
+        }
+        assertRecurringTableWorks(db)
+        db.close()
+    }
+
+    @Test
+    fun migrate1To5KeepsDataThroughEveryMigration() {
+        helper.createDatabase(TEST_DB, 1).apply {
+            insertBaseRows(this)
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(
+            TEST_DB, 5, true, MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
+        )
+
+        assertBaseRowsSurvived(db)
+        assertNewDebtColumnsWork(db)
+        assertRecurringTableWorks(db)
+        db.close()
+    }
+
+    /**
+     * The recurring_rules table exists, is empty, accepts the three kinds of rule, defaults
+     * occurrencesDone to 0 and has the expected foreign keys (RESTRICT, SET NULL, CASCADE).
+     * Needs account 1 and category 7 (insertBaseRows); it inserts its own debt, spare account and category.
+     */
+    private fun assertRecurringTableWorks(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.query("SELECT COUNT(*) FROM recurring_rules").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(0, it.getInt(0))
+        }
+        db.execSQL("PRAGMA foreign_keys = ON")
+        db.execSQL(
+            "INSERT OR IGNORE INTO debts (id, name, startingBalanceCents, originalAmountCents, aprBasisPoints, " +
+                "minPaymentCents, dueDay, archived, sortOrder, createdAt) " +
+                "VALUES (90, 'Rule debt', 100000, NULL, 500, 20000, 10, 0, 90, 8)",
+        )
+        // a bill with a category, without occurrencesDone: the column default (0) applies
+        db.execSQL(
+            "INSERT INTO recurring_rules (id, name, kind, transactionType, amountCents, accountId, categoryId, " +
+                "debtId, note, startDate, intervalCount, intervalUnit, dayOfMonth, endDate, maxOccurrences, " +
+                "nextDueDate, remindDayBefore, active, createdAt) " +
+                "VALUES (1, 'Rent', 'BILL', 'EXPENSE', 65000, 1, 7, NULL, '', 20400, 1, 'MONTH', 5, NULL, NULL, " +
+                "20400, 1, 1, 9)",
+        )
+        // a debt payment and an income
+        db.execSQL(
+            "INSERT INTO recurring_rules (id, name, kind, transactionType, amountCents, accountId, categoryId, " +
+                "debtId, note, startDate, intervalCount, intervalUnit, dayOfMonth, endDate, maxOccurrences, " +
+                "occurrencesDone, nextDueDate, remindDayBefore, active, createdAt) " +
+                "VALUES (2, 'Loan', 'DEBT_PAYMENT', 'EXPENSE', 20000, 1, NULL, 90, '', 20400, 1, 'MONTH', 10, NULL, " +
+                "NULL, 2, 20460, 0, 1, 9)",
+        )
+        db.execSQL(
+            "INSERT INTO recurring_rules (id, name, kind, transactionType, amountCents, accountId, categoryId, " +
+                "debtId, note, startDate, intervalCount, intervalUnit, dayOfMonth, endDate, maxOccurrences, " +
+                "occurrencesDone, nextDueDate, remindDayBefore, active, createdAt) " +
+                "VALUES (3, 'Salary', 'INCOME', 'INCOME', 200000, 1, NULL, NULL, 'x', 20400, 2, 'WEEK', NULL, 20800, " +
+                "12, 0, 20400, 0, 1, 9)",
+        )
+        db.query("SELECT occurrencesDone, intervalUnit, dayOfMonth FROM recurring_rules WHERE id = 1").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(0, it.getInt(0))
+            assertEquals("MONTH", it.getString(1))
+            assertEquals(5, it.getInt(2))
+        }
+        db.query("SELECT endDate, maxOccurrences, dayOfMonth FROM recurring_rules WHERE id = 3").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(20800L, it.getLong(0))
+            assertEquals(12, it.getInt(1))
+            assertTrue(it.isNull(2))
+        }
+        // deleting the category clears the rule's category, the rule stays
+        db.execSQL("INSERT INTO categories (id, name, kind, colorKey, iconKey, archived, sortOrder) VALUES (8, 'Tmp', 'EXPENSE', 'mint', 'cart', 0, 9)")
+        db.execSQL("UPDATE recurring_rules SET categoryId = 8 WHERE id = 1")
+        db.execSQL("DELETE FROM categories WHERE id = 8")
+        db.query("SELECT categoryId FROM recurring_rules WHERE id = 1").use {
+            assertTrue(it.moveToFirst())
+            assertTrue(it.isNull(0))
+        }
+        // deleting the debt deletes its rule
+        db.execSQL("DELETE FROM debts WHERE id = 90")
+        db.query("SELECT COUNT(*) FROM recurring_rules WHERE id = 2").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(0, it.getInt(0))
+        }
+        // an account used by a rule cannot be deleted
+        db.execSQL("INSERT INTO accounts (id, name, type, startingBalanceCents, archived, sortOrder, createdAt) VALUES (9, 'Spare', 'CASH', 0, 0, 5, 1)")
+        db.execSQL(
+            "INSERT INTO recurring_rules (id, name, kind, transactionType, amountCents, accountId, categoryId, " +
+                "debtId, note, startDate, intervalCount, intervalUnit, dayOfMonth, endDate, maxOccurrences, " +
+                "occurrencesDone, nextDueDate, remindDayBefore, active, createdAt) " +
+                "VALUES (4, 'Gym', 'SUBSCRIPTION', 'EXPENSE', 3000, 9, NULL, NULL, '', 20400, 1, 'MONTH', 1, NULL, NULL, " +
+                "0, 20400, 0, 1, 9)",
+        )
+        var blocked = false
+        try {
+            db.execSQL("DELETE FROM accounts WHERE id = 9")
+        } catch (e: android.database.sqlite.SQLiteConstraintException) {
+            blocked = true
+        }
+        assertTrue("an account with a recurring rule must not be deletable", blocked)
     }
 
     private companion object {

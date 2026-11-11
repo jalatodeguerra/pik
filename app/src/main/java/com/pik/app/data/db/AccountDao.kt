@@ -71,6 +71,10 @@ interface AccountDao {
     @Query("SELECT COUNT(*) FROM transactions WHERE accountId = :id OR toAccountId = :id")
     suspend fun transactionCount(id: Long): Int
 
+    /** Recurring rules that use the account (the foreign key forbids deleting it). */
+    @Query("SELECT COUNT(*) FROM recurring_rules WHERE accountId = :id")
+    suspend fun recurringRuleCount(id: Long): Int
+
     @Query("DELETE FROM accounts WHERE id = :id")
     suspend fun deleteById(id: Long)
 

@@ -7,13 +7,17 @@ import com.pik.app.data.db.TransactionRow
 import com.pik.app.data.prefs.PikPreferences
 import com.pik.app.data.repo.AccountRepository
 import com.pik.app.data.repo.DebtRepository
+import com.pik.app.data.repo.RecurringRepository
 import com.pik.app.data.repo.TransactionRepository
 import com.pik.app.domain.BalanceCalculator
 import com.pik.app.domain.DebtPaymentsDue
 import com.pik.app.domain.Period
+import com.pik.app.domain.RecurringPlanner
 import com.pik.app.domain.SafeToSpend
 import com.pik.app.domain.SafeToSpendCalculator
 import com.pik.app.domain.TxFacts
+import com.pik.app.ui.screens.recurring.DueItemUi
+import com.pik.app.ui.screens.recurring.buildDueItems
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,6 +48,11 @@ data class HomeUiState(
     /** What you still owe: total remaining of the non-archived debts. Never mixed with [totalCents]. */
     val owedCents: Long = 0,
     val debtCount: Int = 0,
+    /** Unconfirmed recurring items that are overdue or due within 7 days, oldest first. */
+    val due: List<DueItemUi> = emptyList(),
+    val today: LocalDate = LocalDate.now(),
+    /** Number of recurring rules (for the Recurring shortcut). */
+    val recurringCount: Int = 0,
 )
 
 /** Debt figures Home needs: the open debts and the extra-per-month setting. */
@@ -52,13 +61,20 @@ private data class DebtInfo(
     val extraPerMonthCents: Long,
 )
 
+/** Debt and recurring figures Home needs next to the rest. */
+private data class PlanInfo(
+    val debts: DebtInfo,
+    val rules: List<com.pik.app.data.db.RecurringRuleEntity>,
+)
+
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     accountRepository: AccountRepository,
     private val transactionRepository: TransactionRepository,
     debtRepository: DebtRepository,
-    prefs: PikPreferences,
+    private val recurringRepository: RecurringRepository,
+    private val prefs: PikPreferences,
 ) : ViewModel() {
 
     private val todayFlow = MutableStateFlow(LocalDate.now())
@@ -80,6 +96,23 @@ class HomeViewModel @Inject constructor(
         )
     }
 
+    private val planInfo = combine(debtInfo, recurringRepository.observeRules()) { debts, rules ->
+        PlanInfo(debts, rules)
+    }
+
+    /** Confirms the next pending occurrence of a recurring rule (a transaction is created). */
+    fun confirmDue(ruleId: Long, amountCents: Long, accountId: Long, date: LocalDate) {
+        viewModelScope.launch {
+            recurringRepository.confirm(ruleId, amountCents, accountId, date)
+            prefs.setLastUsedAccountId(accountId)
+        }
+    }
+
+    /** Skips the next pending occurrence of a recurring rule (no transaction). */
+    fun skipDue(ruleId: Long) {
+        viewModelScope.launch { recurringRepository.skip(ruleId) }
+    }
+
     val state: StateFlow<HomeUiState> = combine(
         todayFlow,
         prefs.monthStartDay,
@@ -92,14 +125,18 @@ class HomeViewModel @Inject constructor(
                 transactionRepository.observeRange(period.start, period.endInclusive),
                 transactionRepository.observeRecent(RECENT_COUNT),
                 transactionRepository.observeCount(),
-                debtInfo,
-            ) { accountsAndBalances, periodRows, recent, count, debts ->
+                planInfo,
+            ) { accountsAndBalances, periodRows, recent, count, plan ->
+                val debts = plan.debts
                 val (accounts, balances) = accountsAndBalances
                 val withBalance = accounts.map { AccountWithBalance(it, balances[it.id] ?: it.startingBalanceCents) }
                 val facts = periodRows.map {
                     TxFacts(it.type, it.amountCents, it.accountId, it.toAccountId, it.categoryId, it.debtId)
                 }
                 val totals = BalanceCalculator.monthTotals(facts)
+                val stillDue = RecurringPlanner.stillDue(
+                    plan.rules.map { it.toFacts() }, settings.today, period.endInclusive,
+                )
                 HomeUiState(
                     period = period,
                     isLoading = false,
@@ -113,11 +150,16 @@ class HomeViewModel @Inject constructor(
                         spentCents = totals.expenseCents,
                         daysLeft = period.daysLeft(settings.today),
                         debtPaymentsDueCents = DebtPaymentsDue.compute(debts.inputs, facts, debts.extraPerMonthCents),
+                        billsStillDueCents = stillDue.billsCents,
+                        incomeStillDueCents = stillDue.incomeCents,
                     ),
                     recent = recent,
                     hasTransactions = count > 0,
                     owedCents = debts.inputs.sumOf { it.remainingCents },
                     debtCount = debts.inputs.count { it.remainingCents > 0 },
+                    due = buildDueItems(plan.rules, settings.today),
+                    today = settings.today,
+                    recurringCount = plan.rules.size,
                 )
             }
         }

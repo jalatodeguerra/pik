@@ -58,4 +58,35 @@ class SafeToSpendTest {
         assertEquals(40_000L, s.safeCents)
         assertEquals(4_000L, s.perDayCents)
     }
+
+    @Test fun recurringIncomeStillDueRaisesPlannedIncome() {
+        // nothing expected in Settings: 500 received + 2.000 salary still to come
+        val s = SafeToSpendCalculator.compute(null, 50_000, 30_000, 10, incomeStillDueCents = 200_000)
+        assertEquals(250_000L, s.plannedIncomeCents)
+        assertEquals(200_000L, s.incomeStillDueCents)
+        assertEquals(220_000L, s.safeCents)
+    }
+
+    @Test fun expectedIncomeStillWinsWhenHigherThanReceivedPlusStillDue() {
+        val s = SafeToSpendCalculator.compute(300_000, 50_000, 0, 10, incomeStillDueCents = 200_000)
+        assertEquals(300_000L, s.plannedIncomeCents)
+        assertEquals(300_000L, s.safeCents)
+    }
+
+    @Test fun billsStillDueAreSubtractedOnceAndMoveToSpentWhenConfirmed() {
+        // 1.000 planned, a 100 bill still due
+        val before = SafeToSpendCalculator.compute(100_000, 0, 0, 10, billsStillDueCents = 10_000)
+        assertEquals(90_000L, before.safeCents)
+        // after confirming the bill it is an expense and no longer still due: same safe amount
+        val after = SafeToSpendCalculator.compute(100_000, 0, 10_000, 10, billsStillDueCents = 0)
+        assertEquals(90_000L, after.safeCents)
+    }
+
+    @Test fun billsDebtsAndSpentAreAllSubtracted() {
+        val s = SafeToSpendCalculator.compute(
+            100_000, 0, 20_000, 10, billsStillDueCents = 10_000, debtPaymentsDueCents = 5_000,
+        )
+        assertEquals(65_000L, s.safeCents)
+        assertEquals(6_500L, s.perDayCents)
+    }
 }
