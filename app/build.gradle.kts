@@ -40,6 +40,17 @@ android {
         }
     }
 
+    // Debug builds use a shared debug key kept in the repo, so an APK built by GitHub Actions
+    // installs over one built on another machine. It is only for debug builds, never release.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("pik-debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true

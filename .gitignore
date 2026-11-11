@@ -15,3 +15,5 @@ build/
 keystore.properties
 *.jks
 *.keystore
+# Shared debug key (debug builds only), see app/build.gradle.kts
+!app/pik-debug.keystore
