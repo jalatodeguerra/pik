@@ -51,4 +51,18 @@ class ActivityFilterTest {
         assertTrue(ActivityFilter.matchesAccount(2, 1, 2))
         assertFalse(ActivityFilter.matchesAccount(3, 1, 2))
     }
+
+    @Test
+    fun categoryFilterMatchesCategoryDebtPaymentsAndUncategorised() {
+        val exp = TransactionType.EXPENSE
+        assertTrue(ActivityFilter.matchesCategory(CategoryFilter.All, exp, null, null))
+        assertTrue(ActivityFilter.matchesCategory(CategoryFilter.Category(4), exp, 4, null))
+        assertFalse(ActivityFilter.matchesCategory(CategoryFilter.Category(4), exp, 5, null))
+        assertFalse(ActivityFilter.matchesCategory(CategoryFilter.Category(4), exp, null, 9))
+        assertTrue(ActivityFilter.matchesCategory(CategoryFilter.DebtPayments, exp, null, 9))
+        assertFalse(ActivityFilter.matchesCategory(CategoryFilter.DebtPayments, exp, 4, null))
+        assertTrue(ActivityFilter.matchesCategory(CategoryFilter.Uncategorised, exp, null, null))
+        assertFalse(ActivityFilter.matchesCategory(CategoryFilter.Uncategorised, exp, null, 9))
+        assertFalse(ActivityFilter.matchesCategory(CategoryFilter.Uncategorised, TransactionType.TRANSFER, null, null))
+    }
 }

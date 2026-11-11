@@ -5,6 +5,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.mutableStateOf
@@ -12,7 +13,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.input.ImeAction
+import com.pik.app.domain.CategoryFilter
 import com.pik.app.domain.TypeFilter
+import com.pik.app.ui.components.IconCircle
 import com.pik.app.ui.components.PikConfirmDialog
 import com.pik.app.ui.components.PikFilterChip
 import com.pik.app.ui.components.pikTextFieldColors
@@ -34,6 +37,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.ButtonDefaults
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -58,6 +64,11 @@ fun ActivityScreen(
     viewModel: ActivityViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    // "This month" follows the calendar if the app stays open across a month change (like Home).
+    LifecycleResumeEffect(Unit) {
+        viewModel.refreshMonth()
+        onPauseOrDispose { }
+    }
     ActivityContent(
         state = state,
         onPrevious = viewModel::previousMonth,
@@ -65,6 +76,8 @@ fun ActivityScreen(
         onQueryChange = viewModel::setQuery,
         onTypeFilter = viewModel::setTypeFilter,
         onAccountFilter = viewModel::setAccountFilter,
+        onCategoryFilter = viewModel::setCategoryFilter,
+        onClearPeriod = viewModel::clearPeriod,
         onTransactionClick = onTransactionClick,
         onDeleteAdjustment = viewModel::deleteTransaction,
     )
@@ -78,6 +91,8 @@ private fun ActivityContent(
     onQueryChange: (String) -> Unit,
     onTypeFilter: (TypeFilter) -> Unit,
     onAccountFilter: (Long?) -> Unit,
+    onCategoryFilter: (CategoryFilter) -> Unit,
+    onClearPeriod: () -> Unit,
     onTransactionClick: (Long) -> Unit,
     onDeleteAdjustment: (Long) -> Unit,
 ) {
@@ -92,31 +107,59 @@ private fun ActivityContent(
             color = PikColors.TextPrimary,
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp),
         )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            IconButton(onClick = onPrevious) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                    contentDescription = stringResource(R.string.previous_month),
-                    tint = PikColors.TextPrimary,
+        if (state.period != null) {
+            // Insights asked for a payday period: show it instead of the month arrows.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = state.period.label(),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = PikColors.TextPrimary,
+                    modifier = Modifier.weight(1f),
                 )
+                TextButton(
+                    onClick = onClearPeriod,
+                    colors = ButtonDefaults.textButtonColors(contentColor = PikColors.Lime),
+                ) {
+                    Text(
+                        text = stringResource(R.string.activity_back_to_months),
+                        maxLines = 2,
+                        textAlign = TextAlign.End,
+                    )
+                }
             }
-            Text(
-                text = DateFormats.monthYear(state.month),
-                style = MaterialTheme.typography.titleLarge,
-                color = PikColors.TextPrimary,
-            )
-            IconButton(onClick = onNext, enabled = state.canGoNext) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = stringResource(R.string.next_month),
-                    tint = if (state.canGoNext) PikColors.TextPrimary else PikColors.Outline,
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                IconButton(onClick = onPrevious) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                        contentDescription = stringResource(R.string.previous_month),
+                        tint = PikColors.TextPrimary,
+                    )
+                }
+                Text(
+                    text = DateFormats.monthYear(state.month),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = PikColors.TextPrimary,
                 )
+                IconButton(onClick = onNext, enabled = state.canGoNext) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = stringResource(R.string.next_month),
+                        tint = if (state.canGoNext) PikColors.TextPrimary else PikColors.Outline,
+                    )
+                }
             }
         }
 
@@ -190,6 +233,29 @@ private fun ActivityContent(
             }
         }
 
+        if (state.categoryOptions.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                PikFilterChip(
+                    label = stringResource(R.string.filter_all_categories),
+                    selected = state.categoryFilter == CategoryFilter.All,
+                    onClick = { onCategoryFilter(CategoryFilter.All) },
+                )
+                state.categoryOptions.forEach { option ->
+                    PikFilterChip(
+                        label = option.label(),
+                        selected = state.categoryFilter == option.filter,
+                        onClick = { onCategoryFilter(option.filter) },
+                    )
+                }
+            }
+        }
+
         if (!state.isLoading && state.groups.isEmpty()) {
             Box(
                 modifier = Modifier
@@ -197,14 +263,25 @@ private fun ActivityContent(
                     .padding(32.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    text = stringResource(
-                        if (state.filtering) R.string.activity_no_matches else R.string.activity_empty,
-                    ),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = PikColors.TextSecondary,
-                    textAlign = TextAlign.Center,
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    IconCircle(
+                        icon = if (state.filtering) Icons.Filled.Search else Icons.Filled.Receipt,
+                        tint = PikColors.Lime,
+                        contentDescription = null,
+                        size = 64,
+                    )
+                    Text(
+                        text = stringResource(
+                            if (state.filtering) R.string.activity_no_matches else R.string.activity_empty,
+                        ),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = PikColors.TextSecondary,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
         } else {
             LazyColumn(
@@ -254,6 +331,14 @@ private fun ActivityContent(
             destructive = true,
         )
     }
+}
+
+@Composable
+private fun CategoryOption.label(): String = when {
+    name != null -> name
+    filter == CategoryFilter.DebtPayments -> stringResource(R.string.filter_debt_payments)
+    filter == CategoryFilter.Uncategorised -> stringResource(R.string.transaction_uncategorized)
+    else -> stringResource(R.string.filter_category_selected)
 }
 
 private fun TypeFilter.labelRes(): Int = when (this) {

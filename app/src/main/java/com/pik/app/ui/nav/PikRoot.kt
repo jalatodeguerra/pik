@@ -27,11 +27,13 @@ import com.pik.app.ui.screens.home.HomeScreen
 import com.pik.app.ui.screens.debts.DebtDetailScreen
 import com.pik.app.ui.screens.debts.DebtEditScreen
 import com.pik.app.ui.screens.debts.DebtsScreen
+import com.pik.app.ui.screens.insights.InsightsScreen
 import com.pik.app.ui.screens.plan.BudgetEditorScreen
 import com.pik.app.ui.screens.plan.PlanScreen
 import com.pik.app.ui.screens.recurring.RecurringEditScreen
 import com.pik.app.ui.screens.recurring.RecurringScreen
 import com.pik.app.ui.screens.settings.CategoriesScreen
+import com.pik.app.ui.screens.settings.LicencesScreen
 import com.pik.app.ui.screens.settings.SettingsScreen
 import com.pik.app.ui.theme.PikColors
 
@@ -104,6 +106,14 @@ private fun PikNavigation(startDestination: String, quickAddToken: Int, openRecu
                     onPlanClick = { navController.navigateToTab(Routes.PLAN) },
                     onDebtsClick = { navController.navigateToTab(Routes.DEBTS) },
                     onRecurringClick = { navController.navigate(Routes.RECURRING) },
+                    onInsightsClick = { navController.navigate(Routes.INSIGHTS) },
+                )
+            }
+            composable(Routes.INSIGHTS) {
+                InsightsScreen(
+                    onBack = { navController.popBackStack() },
+                    onAddTransaction = { navController.navigate(Routes.add()) },
+                    onShowInActivity = { navController.navigateToTab(Routes.ACTIVITY) },
                 )
             }
             composable(Routes.ACTIVITY) {
@@ -115,7 +125,11 @@ private fun PikNavigation(startDestination: String, quickAddToken: Int, openRecu
                 SettingsScreen(
                     onBack = { navController.popBackStack() },
                     onOpenCategories = { navController.navigate(Routes.CATEGORIES) },
+                    onOpenLicences = { navController.navigate(Routes.LICENCES) },
                 )
+            }
+            composable(Routes.LICENCES) {
+                LicencesScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.CATEGORIES) {
                 CategoriesScreen(onBack = { navController.popBackStack() })

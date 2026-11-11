@@ -10,3 +10,8 @@ build/
 .kotlin/
 *.apk
 *.aab
+
+# Release signing: never commit these
+keystore.properties
+*.jks
+*.keystore

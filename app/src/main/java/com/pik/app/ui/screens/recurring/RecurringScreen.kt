@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -142,11 +144,13 @@ private fun EmptyCard(onAdd: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            IconCircle(Icons.Filled.Autorenew, PikColors.Amber, null, size = 64)
             Text(
                 text = stringResource(R.string.recurring_empty_title),
                 style = MaterialTheme.typography.titleLarge,
                 color = PikColors.TextPrimary,
                 textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 8.dp),
             )
             Text(
                 text = stringResource(R.string.recurring_empty_message),

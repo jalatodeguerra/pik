@@ -8,8 +8,10 @@ editing expenses, income and transfers, an activity list by month with search an
 screen with balances, a Settings screen (accounts, categories, backup, about), balance checks and
 backup files. Milestone 3 added the Plan tab: payday month, budgets and "safe to spend". Milestone 4
 added debts: a Debts tab with a payoff plan, debt payments, interest and fee entries, a "What if I pay
-more?" slider, TAN / TAEG, loan types and instalments. Milestone 5 (this version) adds recurring bills,
-subscriptions, income and debt instalments, a "Due" list, daily reminders and backup format 5.
+more?" slider, TAN / TAEG, loan types and instalments. Milestone 5 added recurring bills,
+subscriptions, income and debt instalments, a "Due" list, daily reminders and backup format 5. Milestone 6
+(this version) adds Insights (charts), a fingerprint lock, CSV export, a category filter in Activity, a
+polish pass and a release build setup. There is no database change in milestone 6 (schema stays at version 5).
 
 ## Features
 
@@ -26,7 +28,7 @@ subscriptions, income and debt instalments, a "Due" list, daily reminders and ba
   today (note "Balance check") is added. Adjustments show as "Balance adjustment" in Activity,
   can be deleted there (with confirmation) but are not editable in the Add screen.
 - **Activity search and filters**: search the selected month by note, category or account name
-  (case-insensitive), filter by type (All / Expenses / Income / Transfers) and by account.
+  (case-insensitive), filter by type (All / Expenses / Income / Transfers), by account and by category.
 - **Month starts on** (Settings -> Plan): day 1-28, default 1. If you are paid on the 27th, choose
   27 and Home and Plan use periods from the 27th to the 26th (see "Payday month" below).
 - **Plan tab**: period header with previous / next arrows, "Safe to spend", the overall budget,
@@ -42,6 +44,9 @@ subscriptions, income and debt instalments, a "Due" list, daily reminders and ba
 - **Recurring** (Home quick link and a card on Plan): bills, subscriptions, regular income and debt
   instalments, a "Due soon / Overdue" list on Home, a week strip, monthly and yearly totals and a daily
   reminder. See "Recurring" below.
+- **Insights** (Home: the Spending card or the "More" card): income vs spending for the last 6 payday months,
+  a donut of where the money went, and four small stats. See "Insights" below.
+- **Fingerprint lock** (Settings -> Security) and **CSV export** (Settings -> Backup). See "Lock" and "CSV export".
 - **App shortcut**: long-press the Pik icon and choose "Add expense" to open the Add screen
   directly (only after first-run setup).
 
@@ -316,6 +321,104 @@ opens the Recurring screen.
 - Settings -> Reminders -> **If reminders don't arrive** opens the app's system settings
   (`ACTION_APPLICATION_DETAILS_SETTINGS`) with a short explanation: go to Battery and allow background activity.
 
+## Insights
+
+Home has a **Spending** card (what you spent so far in the period, with a small line of how it built up day by
+day) and a **More** card with rows for Insights and Recurring. Both open the Insights screen. All the maths is in
+the pure `domain/InsightsCalculator.kt` (unit tested); the charts are drawn with Compose `Canvas` (no chart
+library) in `ui/screens/insights/InsightsCharts.kt`.
+
+- Everything uses **payday periods** (`Period`, the "Month starts on" setting), not calendar months. Only income
+  and expenses count: transfers and balance adjustments are ignored.
+- **Income and spending**: a pair of bars for each of the last 6 periods (oldest first, the current one is the
+  default selection and its label is bold). Tap a pair to see its numbers as text above the chart. A **debt
+  payment is spending**, but the blue part of the spending bar shows how much of it went to debt.
+- **Where it went**: a donut for the selected period (arrows move between periods, back to the first period that
+  has data, never into the future). The 6 biggest categories get a slice, the rest are one **Other** slice
+  (not tappable), uncategorised spending is a slice of its own, and **Debt payments** is always its own blue
+  slice. Percentages are whole numbers that always add up to 100 (largest remainder rounding). Tapping a slice or
+  a legend row opens **Activity** for that period, filtered to the category (see below).
+- **Stats**: spent this period vs the average of up to 3 previous periods (+12% / -8%; periods before your first
+  transaction do not count, so with fewer than 3 periods it uses what exists, and with none it says there is not
+  enough history); kept (income - spending, can be negative); debt paid; biggest expense (the biggest single
+  expense that is not a debt payment, since debt payments have their own tile).
+- Accessibility: each chart has one `contentDescription` that reads the numbers; every slice also appears in the
+  legend with its name, amount and percentage, so nothing relies on color alone. The legend rows are at least
+  48dp high. Insights with no income or expense at all shows an empty state with an "add a transaction" button.
+
+### Activity filters
+
+Activity has a **category** chip row (the categories found in the shown transactions, "Uncategorised" and
+"Debt payments" when they exist, and the selected one) next to the type and account filters. Activity also
+follows the calendar like Home: if you leave the app open past the end of the month, "this month" moves on when
+you come back. When Insights sends you here, Activity shows the whole **payday period** instead of a calendar
+month (the month arrows are replaced by the period and a "Show whole months" button).
+
+## Lock
+
+Settings -> Security -> **Lock with fingerprint** uses `androidx.biometric` (BiometricPrompt) with fingerprint or
+face and the phone's PIN / pattern / password as the fallback (`BIOMETRIC_WEAK or DEVICE_CREDENTIAL`; strong is
+included in weak, and this is the combination that works from Android 8 up). The switch is hidden when the phone
+has no screen lock or biometric (`BiometricManager.canAuthenticate` is not `SUCCESS`), and it can only be turned
+**on** after a successful authentication.
+
+- The app starts locked and locks again when it comes back after more than **60 seconds** away (`LockPolicy`,
+  tracked in `MainActivity.onStop` / `onStart` with `SystemClock.elapsedRealtime`). While locked, a full-screen
+  "Pik is locked" screen with an **Unlock** button covers the app (the app below stays in memory but is hidden from
+  touch and screen readers), and the system prompt opens once by itself. The "Add expense" shortcut and reminder
+  taps therefore also wait for the unlock.
+- While the lock is on, `FLAG_SECURE` is set on the window: Recent apps and screenshots show nothing.
+- If the phone loses its screen lock and fingerprints while the lock is on, Pik switches the lock off (otherwise
+  nothing could ever unlock it).
+- **This hides Pik's screens. Your data file isn't encrypted.** Someone with the phone unlocked in another way, or
+  with a backup file, still sees the data.
+- `MainActivity` extends `FragmentActivity` (needed by BiometricPrompt). The setting is `lockEnabled` in DataStore;
+  `lock/AppLock.kt` holds the state.
+
+## CSV export
+
+Settings -> Backup -> **Export CSV** saves every transaction for a spreadsheet (Excel, Google Sheets) with the file
+picker (`pik-transactions-YYYY-MM-DD.csv`). It is **not a backup**: only the JSON backup restores. Format
+(`domain/CsvExport.kt`, unit tested):
+
+- UTF-8 with a byte order mark (written first as U+FEFF, so Excel shows accents and the euro sign correctly),
+  fields separated by **semicolons** (Italian Excel), lines end with CRLF.
+- Columns: `date;type;amount;account;to account;category;debt;note`. Header and `type` values (`expense`,
+  `income`, `transfer`, `adjustment`) are always in English. `date` is `yyyy-MM-dd`.
+- `amount` has a decimal comma and no thousands separator: expenses are negative (`-12,50`), income positive, a
+  transfer is the plain amount, an adjustment keeps its sign.
+- Fields with a semicolon, quote or line break are quoted (quotes doubled). Text starting with `=`, `+`, `-` or
+  `@` gets a leading apostrophe so a spreadsheet never runs it as a formula.
+
+## Release build
+
+Release builds use R8 (`isMinifyEnabled` and `isShrinkResources` are on; `app/proguard-rules.pro` only keeps line
+numbers for crash reports, because Room, Hilt, WorkManager, Navigation and Biometric bring their own rules and
+backups use `org.json`, not reflection). Check a release build on a phone before sharing it.
+
+Signing is optional. `app/build.gradle.kts` creates a `release` signing config **only if** `keystore.properties`
+exists in the project root; without it `assembleRelease` produces an unsigned APK. `keystore.properties` and
+`*.jks` are in `.gitignore`: never commit them, and keep a copy of the keystore and its passwords somewhere safe
+(if you lose it you cannot update an installed app).
+
+```
+# 1. Create a keystore once (valid about 27 years). It asks for passwords and your name.
+keytool -genkeypair -v -keystore pik-release.jks -alias pik -keyalg RSA -keysize 2048 -validity 10000
+
+# 2. Create keystore.properties next to settings.gradle.kts:
+#      storeFile=pik-release.jks
+#      storePassword=...
+#      keyAlias=pik
+#      keyPassword=...
+
+# 3. Build
+./gradlew assembleRelease
+```
+
+The signed APK is in `app/build/outputs/apk/release/app-release.apk`; install it with
+`adb install app/build/outputs/apk/release/app-release.apk` or copy it to the phone. `storeFile` is read relative
+to the project root (an absolute path also works).
+
 ## Stack
 
 - Kotlin 2.1.21, Jetpack Compose (Material 3, BOM 2025.05.01), dark theme only
@@ -323,6 +426,7 @@ opens the Recurring screen.
 - Hilt for dependency injection, Navigation Compose
 - Fonts: Outfit (headings, numbers) and Inter (body), both under the SIL OFL (see `licenses/`)
 - WorkManager 2.10.1 and Hilt-Work 1.2.0 for the daily reminder
+- AndroidX Biometric 1.1.0 (fingerprint lock) with AndroidX Fragment 1.8.6 (BiometricPrompt needs a FragmentActivity)
 - minSdk 26, target/compile SDK 35, Gradle 8.14.3, AGP 8.10.1
 
 ## Build
@@ -332,7 +436,7 @@ opens the Recurring screen.
 ./gradlew testDebugUnitTest lintDebug
 ```
 
-The debug APK is written to `app/build/outputs/apk/debug/`.
+The debug APK is written to `app/build/outputs/apk/debug/`. For a release build see "Release build".
 Instrumented tests (`app/src/androidTest`, Room migration + balance query) run with
 `./gradlew connectedDebugAndroidTest` on a device or emulator.
 
@@ -350,11 +454,12 @@ app/src/main/java/com/pik/app/
   data/db       Room entities, DAOs, converters, PikDatabase
   data/repo     repositories (the only thing ViewModels talk to)
   data/prefs    DataStore preferences (onboardingComplete, lastUsedAccountId, lastBackupEpochDay,
-                monthStartDay, expectedIncomeCents, extraPerMonthCents, payoffOrder, reminderHour)
+                monthStartDay, expectedIncomeCents, extraPerMonthCents, payoffOrder, reminderHour, lockEnabled)
   domain        pure Kotlin, no Android: Money, AmountInput (keypad), BalanceCalculator, BalanceCheck,
                 ActivityFilter, DateFormats (locale aware), Installments, Period, BudgetCalculator, SafeToSpendCalculator,
                 DebtCalculator / DebtPaymentsDue, PayoffSimulator, Apr, RecurrenceCalculator / RecurringPlanner,
-                ReminderTime
+                ReminderTime, InsightsCalculator, DonutMath, CsvExport, LockPolicy
+  lock          AppLock (state, 60 second rule), BiometricAuth (BiometricPrompt wrapper), LockScreen overlay
   backup        backup file model and JSON (de)serialization with validation (org.json only)
   reminders     ReminderWorker (daily notification), ReminderScheduler (WorkManager), ReminderPermissions
   di            Hilt modules
@@ -362,7 +467,7 @@ app/src/main/java/com/pik/app/
   ui/components shared composables
   ui/nav        routes, floating bottom bar, nav host
   ui/screens    firstrun, add, activity, home, plan (Plan, budget editor), debts, recurring (list, edit, confirm
-                sheet), settings
+                sheet), insights (screen, charts), settings (incl. licences)
 ```
 
 Layers: Compose screens -> ViewModels (one `StateFlow` UI state per screen) -> repositories -> Room.
@@ -433,6 +538,8 @@ must point to a debt in the file, debts need a due day 1-28, a rate of 0-100 % a
 `settings` (month start day, expected income, extra per month, payoff order) are DataStore values: they are
 written to the file on save and, when the file has them, restored after the database. A file without
 `settings` leaves the current ones alone.
+
+(The CSV export in the same section is separate and cannot be restored, see "CSV export".)
 
 Every column of every row is included, money is integer cents and dates are ISO `yyyy-MM-dd`.
 "Restore from file" validates the file first (format version, ids, and that every transaction

@@ -29,6 +29,15 @@ data class TransactionRow(
     val categoryColorKey: String?,
 )
 
+/** The few columns the Insights screen needs, for every transaction. */
+data class InsightRow(
+    val date: LocalDate,
+    val type: TransactionType,
+    val amountCents: Long,
+    val categoryId: Long?,
+    val debtId: Long?,
+)
+
 private const val ROW_SELECT = """
     SELECT t.id AS id, t.type AS type, t.amountCents AS amountCents, t.date AS date,
            t.accountId AS accountId, t.toAccountId AS toAccountId, t.categoryId AS categoryId,
@@ -55,6 +64,13 @@ interface TransactionDao {
 
     @Query(ROW_SELECT + " ORDER BY t.date DESC, t.id DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<TransactionRow>>
+
+    /** Every transaction with its names, oldest first (CSV export). */
+    @Query(ROW_SELECT + " ORDER BY t.date ASC, t.id ASC")
+    suspend fun getAllRows(): List<TransactionRow>
+
+    @Query("SELECT date, type, amountCents, categoryId, debtId FROM transactions")
+    fun observeInsightRows(): Flow<List<InsightRow>>
 
     @Query("SELECT COUNT(*) FROM transactions")
     fun observeCount(): Flow<Int>

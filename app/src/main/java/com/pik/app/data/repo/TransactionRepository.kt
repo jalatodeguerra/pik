@@ -5,8 +5,10 @@ import com.pik.app.data.db.TransactionDao
 import com.pik.app.data.db.TransactionEntity
 import com.pik.app.data.db.TransactionRow
 import com.pik.app.domain.BalanceCheck
+import com.pik.app.domain.InsightTx
 import com.pik.app.domain.TransactionType
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 import java.time.YearMonth
 import javax.inject.Inject
@@ -23,6 +25,14 @@ class TransactionRepository @Inject constructor(
     /** Transactions between two calendar days, both inclusive (a payday-month period). */
     fun observeRange(from: LocalDate, toInclusive: LocalDate): Flow<List<TransactionRow>> =
         dao.observeBetween(from.toEpochDay(), toInclusive.toEpochDay())
+
+    /** Every transaction, for the Insights maths (periods are bucketed in the domain layer). */
+    fun observeInsightFacts(): Flow<List<InsightTx>> = dao.observeInsightRows().map { rows ->
+        rows.map { InsightTx(it.date, it.type, it.amountCents, it.categoryId, it.debtId) }
+    }
+
+    /** Every transaction with account, category and debt names, oldest first (CSV export). */
+    suspend fun getAllRows(): List<TransactionRow> = dao.getAllRows()
 
     fun observeRecent(limit: Int): Flow<List<TransactionRow>> = dao.observeRecent(limit)
 

@@ -26,6 +26,10 @@ object DateFormats {
     fun monthName(month: YearMonth, locale: Locale = Locale.getDefault()): String =
         capitalise(month.month.getDisplayName(TextStyle.FULL_STANDALONE, locale), locale)
 
+    /** "Nov" / "Nov": a short month name for a chart label (capitalised, no dot). */
+    fun monthShort(month: YearMonth, locale: Locale = Locale.getDefault()): String =
+        capitalise(shortMonth(month.month, locale), locale)
+
     /** "November 2026" / "Novembre 2026" */
     fun monthYear(month: YearMonth, locale: Locale = Locale.getDefault()): String =
         "${monthName(month, locale)} ${month.year}"

@@ -147,7 +147,8 @@ fun PikSecondaryButton(
         Text(
             text = text,
             style = MaterialTheme.typography.titleMedium,
-            maxLines = 1,
+            // two lines so large font sizes wrap instead of cutting the label
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
     }

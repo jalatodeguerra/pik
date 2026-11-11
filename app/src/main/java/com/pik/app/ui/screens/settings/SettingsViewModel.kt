@@ -15,6 +15,9 @@ import com.pik.app.data.repo.BackupRepository
 import com.pik.app.data.repo.RecurringRepository
 import com.pik.app.data.repo.TransactionRepository
 import com.pik.app.domain.AccountType
+import com.pik.app.domain.CsvExport
+import com.pik.app.domain.CsvTransaction
+import com.pik.app.lock.AppLock
 import com.pik.app.reminders.ReminderScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -48,6 +51,8 @@ data class PendingRestore(val file: BackupFile) {
 enum class SettingsMessage {
     BACKUP_SAVED,
     BACKUP_FAILED,
+    CSV_SAVED,
+    CSV_FAILED,
     RESTORE_DONE,
     RESTORE_READ_FAILED,
     RESTORE_NOT_A_BACKUP,
@@ -68,6 +73,8 @@ data class SettingsUiState(
     /** True when at least one recurring rule has "remind me the day before" on. */
     val hasReminders: Boolean = false,
     val versionName: String = "",
+    /** The fingerprint / phone PIN lock is switched on. */
+    val lockEnabled: Boolean = false,
     val busy: Boolean = false,
     val pendingRestore: PendingRestore? = null,
     val message: SettingsMessage? = null,
@@ -82,6 +89,7 @@ class SettingsViewModel @Inject constructor(
     private val recurringRepository: RecurringRepository,
     private val reminderScheduler: ReminderScheduler,
     private val prefs: PikPreferences,
+    private val appLock: AppLock,
 ) : ViewModel() {
 
     private val versionName: String = readVersionName()
@@ -129,7 +137,8 @@ class SettingsViewModel @Inject constructor(
         prefs.lastBackupEpochDay,
         localState,
         planPrefs,
-    ) { accounts, lastBackup, t, plan ->
+        appLock.enabled,
+    ) { accounts, lastBackup, t, plan, lockEnabled ->
         SettingsUiState(
             accounts = accounts,
             lastBackupEpochDay = lastBackup,
@@ -138,6 +147,7 @@ class SettingsViewModel @Inject constructor(
             reminderHour = plan.reminderHour,
             hasReminders = plan.hasReminders,
             versionName = versionName,
+            lockEnabled = lockEnabled == true,
             busy = t.busy,
             pendingRestore = t.pendingRestore,
             message = t.message,
@@ -223,6 +233,53 @@ class SettingsViewModel @Inject constructor(
                 it.copy(busy = false, message = if (ok) SettingsMessage.BACKUP_SAVED else SettingsMessage.BACKUP_FAILED)
             }
         }
+    }
+
+    /**
+     * Writes every transaction as a semicolon-separated CSV for spreadsheets. It cannot restore
+     * anything and does not count as a backup.
+     */
+    fun exportCsv(uri: Uri) {
+        localState.update { it.copy(busy = true) }
+        viewModelScope.launch {
+            val ok = try {
+                val rows = transactionRepository.getAllRows().map {
+                    CsvTransaction(
+                        date = it.date,
+                        type = it.type,
+                        amountCents = it.amountCents,
+                        accountName = it.accountName,
+                        toAccountName = it.toAccountName,
+                        categoryName = it.categoryName,
+                        debtName = it.debtName,
+                        note = it.note,
+                    )
+                }
+                val text = CsvExport.build(rows)
+                withContext(Dispatchers.IO) {
+                    val stream = context.contentResolver.openOutputStream(uri, "wt")
+                        ?: throw java.io.IOException("Cannot open output")
+                    stream.bufferedWriter(Charsets.UTF_8).use { it.write(text) }
+                }
+                true
+            } catch (e: Exception) {
+                false
+            }
+            localState.update {
+                it.copy(busy = false, message = if (ok) SettingsMessage.CSV_SAVED else SettingsMessage.CSV_FAILED)
+            }
+        }
+    }
+
+    // ---- lock ----
+
+    /** Call only after the user passed the fingerprint / PIN check. */
+    fun enableLock() {
+        viewModelScope.launch { appLock.enable() }
+    }
+
+    fun disableLock() {
+        viewModelScope.launch { appLock.disable() }
     }
 
     /** Reads and validates the chosen file. Nothing changes until [confirmRestore]. */

@@ -93,6 +93,13 @@ class PikPreferences @Inject constructor(
         store.edit { it[KEY_REMINDER_HOUR] = hour.coerceIn(0, 23) }
     }
 
+    /** True when the app asks for the fingerprint / phone PIN to open. Default false. */
+    val lockEnabled: Flow<Boolean> = store.data.map { it[KEY_LOCK_ENABLED] ?: false }
+
+    suspend fun setLockEnabled(value: Boolean) {
+        store.edit { it[KEY_LOCK_ENABLED] = value }
+    }
+
     suspend fun setOnboardingComplete(value: Boolean) {
         store.edit { it[KEY_ONBOARDING_COMPLETE] = value }
     }
@@ -109,6 +116,7 @@ class PikPreferences @Inject constructor(
         val KEY_EXPECTED_INCOME_CENTS = longPreferencesKey("expectedIncomeCents")
         val KEY_EXTRA_PER_MONTH_CENTS = longPreferencesKey("extraPerMonthCents")
         val KEY_PAYOFF_ORDER = stringPreferencesKey("payoffOrder")
+        val KEY_LOCK_ENABLED = booleanPreferencesKey("lockEnabled")
         val KEY_REMINDER_HOUR = intPreferencesKey("reminderHour")
         const val DEFAULT_REMINDER_HOUR = 9
     }

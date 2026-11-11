@@ -18,7 +18,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.Autorenew
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.pik.app.ui.screens.insights.Sparkline
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -50,7 +57,6 @@ import com.pik.app.ui.theme.PikNumberStyles
 import com.pik.app.ui.screens.recurring.ConfirmDueSheet
 import com.pik.app.ui.screens.recurring.DueItemUi
 import com.pik.app.ui.screens.recurring.DueRow
-import com.pik.app.ui.screens.recurring.RecurringLinkCard
 import java.time.LocalDate
 
 @Composable
@@ -62,6 +68,7 @@ fun HomeScreen(
     onPlanClick: () -> Unit,
     onDebtsClick: () -> Unit,
     onRecurringClick: () -> Unit,
+    onInsightsClick: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -72,7 +79,7 @@ fun HomeScreen(
     }
     HomeContent(
         state, onAddClick, onSeeAll, onTransactionClick, onSettingsClick, onPlanClick, onDebtsClick,
-        onRecurringClick, viewModel::checkBalance, viewModel::confirmDue, viewModel::skipDue,
+        onRecurringClick, onInsightsClick, viewModel::checkBalance, viewModel::confirmDue, viewModel::skipDue,
     )
 }
 
@@ -86,6 +93,7 @@ private fun HomeContent(
     onPlanClick: () -> Unit,
     onDebtsClick: () -> Unit,
     onRecurringClick: () -> Unit,
+    onInsightsClick: () -> Unit,
     onCheckBalance: (accountId: Long, realCents: Long, note: String) -> Unit,
     onConfirmDue: (ruleId: Long, amountCents: Long, accountId: Long, date: LocalDate) -> Unit,
     onSkipDue: (ruleId: Long) -> Unit,
@@ -220,12 +228,14 @@ private fun HomeContent(
                 )
             }
         }
+        item { SpendingCard(state, onClick = onInsightsClick) }
         item {
-            RecurringLinkCard(
-                subtitle = stringResource(
+            MoreCard(
+                recurringSubtitle = stringResource(
                     if (state.recurringCount > 0) R.string.recurring_link_hint else R.string.recurring_link_hint_empty,
                 ),
-                onClick = onRecurringClick,
+                onInsightsClick = onInsightsClick,
+                onRecurringClick = onRecurringClick,
             )
         }
         item {
@@ -361,6 +371,102 @@ private fun DueCard(items: List<DueItemUi>, today: LocalDate, onItemClick: (DueI
 }
 
 private const val DUE_ON_HOME = 3
+
+/** What was spent so far in the period, with a small line of how it built up. Tap opens Insights. */
+@Composable
+private fun SpendingCard(state: HomeUiState, onClick: () -> Unit) {
+    val line = state.spendingLine
+    val hasSpending = state.monthOutCents > 0L && line.size >= 2
+    val description = stringResource(
+        R.string.home_spending_cd,
+        Money.format(state.monthOutCents),
+        state.period.label(),
+    )
+    PikCard(modifier = Modifier.fillMaxWidth(), color = PikColors.Surface, onClick = onClick) {
+        Column(Modifier.padding(horizontal = 20.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.home_spending),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = PikColors.TextSecondary,
+                    )
+                    Text(
+                        text = stringResource(
+                            if (hasSpending) R.string.home_spending_hint else R.string.home_spending_hint_empty,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = PikColors.TextSecondary,
+                    )
+                }
+                Text(
+                    text = Money.format(state.monthOutCents),
+                    style = PikNumberStyles.Large,
+                    color = PikColors.Coral,
+                    maxLines = 1,
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+            }
+            if (hasSpending) {
+                Sparkline(values = line, color = PikColors.Coral, contentDescription = description)
+            }
+        }
+    }
+}
+
+/** Insights and Recurring in one place, so they are easy to find. */
+@Composable
+private fun MoreCard(
+    recurringSubtitle: String,
+    onInsightsClick: () -> Unit,
+    onRecurringClick: () -> Unit,
+) {
+    PikCard(modifier = Modifier.fillMaxWidth()) {
+        MoreRow(
+            icon = Icons.Filled.BarChart,
+            tint = PikColors.Lime,
+            title = stringResource(R.string.insights_title),
+            subtitle = stringResource(R.string.home_insights_hint),
+            onClick = onInsightsClick,
+        )
+        HorizontalDivider(color = PikColors.Outline)
+        MoreRow(
+            icon = Icons.Filled.Autorenew,
+            tint = PikColors.Amber,
+            title = stringResource(R.string.recurring_title),
+            subtitle = recurringSubtitle,
+            onClick = onRecurringClick,
+        )
+    }
+}
+
+@Composable
+private fun MoreRow(icon: ImageVector, tint: Color, title: String, subtitle: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        IconCircle(icon, tint, null)
+        Column(Modifier.weight(1f)) {
+            Text(text = title, style = MaterialTheme.typography.bodyLarge, color = PikColors.TextPrimary)
+            Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = PikColors.TextSecondary)
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = PikColors.TextSecondary,
+        )
+    }
+}
 
 /** Same number as the Plan tab (SafeToSpendCalculator); tapping opens Plan. */
 @Composable

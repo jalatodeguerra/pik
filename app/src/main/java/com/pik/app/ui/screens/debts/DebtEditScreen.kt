@@ -331,7 +331,7 @@ private fun DebtEditForm(
         PikPrimaryButton(
             text = stringResource(R.string.action_save),
             onClick = {
-                if (valid && balance != null && tan != null && min != null) {
+                if (valid) {
                     val tracked = hasInstalments && total != null
                     onSave(
                         DebtInput(

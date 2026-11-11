@@ -60,6 +60,8 @@ import com.pik.app.domain.AccountType
 import com.pik.app.domain.DateFormats
 import com.pik.app.domain.Money
 import com.pik.app.domain.Period
+import com.pik.app.lock.BiometricAuth
+import com.pik.app.lock.findFragmentActivity
 import com.pik.app.reminders.ReminderPermissions
 import com.pik.app.ui.components.CheckBalanceDialog
 import com.pik.app.ui.components.IconCircle
@@ -71,6 +73,7 @@ import com.pik.app.ui.components.PikFilterChip
 import com.pik.app.ui.components.PikPrimaryButton
 import com.pik.app.ui.components.PikSecondaryButton
 import com.pik.app.ui.components.PikSegmented
+import com.pik.app.ui.components.PikSwitchRow
 import com.pik.app.ui.components.SectionTitle
 import com.pik.app.ui.components.pikTextFieldColors
 import com.pik.app.ui.theme.PikColors
@@ -83,6 +86,8 @@ private const val MAX_NAME_LENGTH = 40
 private fun SettingsMessage.stringRes(): Int = when (this) {
     SettingsMessage.BACKUP_SAVED -> R.string.backup_saved
     SettingsMessage.BACKUP_FAILED -> R.string.backup_failed
+    SettingsMessage.CSV_SAVED -> R.string.csv_saved
+    SettingsMessage.CSV_FAILED -> R.string.csv_failed
     SettingsMessage.RESTORE_DONE -> R.string.restore_done
     SettingsMessage.RESTORE_READ_FAILED -> R.string.restore_read_failed
     SettingsMessage.RESTORE_NOT_A_BACKUP -> R.string.restore_not_a_backup
@@ -150,6 +155,7 @@ private data class AccountEditorTarget(val item: SettingsAccount?)
 fun SettingsScreen(
     onBack: () -> Unit,
     onOpenCategories: () -> Unit,
+    onOpenLicences: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -171,14 +177,22 @@ fun SettingsScreen(
     val context = LocalContext.current
     // The notification permission can change in the system settings: look again when the screen resumes.
     var notificationsAllowed by remember { mutableStateOf(ReminderPermissions.canNotify(context)) }
+    // Same for the phone's screen lock: the switch only shows when a fingerprint or PIN can be checked.
+    var lockAvailable by remember { mutableStateOf(BiometricAuth.isAvailable(context)) }
     LifecycleResumeEffect(Unit) {
         notificationsAllowed = ReminderPermissions.canNotify(context)
+        lockAvailable = BiometricAuth.isAvailable(context)
         onPauseOrDispose { }
     }
+    val lockPromptTitle = stringResource(R.string.lock_enable_title)
+    val lockPromptSubtitle = stringResource(R.string.lock_enable_subtitle)
 
     val createLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json"),
     ) { uri -> if (uri != null) viewModel.saveBackup(uri) }
+    val csvLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv"),
+    ) { uri -> if (uri != null) viewModel.exportCsv(uri) }
     val openLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri -> if (uri != null) viewModel.prepareRestore(uri) }
@@ -303,6 +317,35 @@ fun SettingsScreen(
                     )
                 }
 
+                if (lockAvailable || state.lockEnabled) {
+                    SectionTitle(stringResource(R.string.settings_security))
+                    PikCard(modifier = Modifier.fillMaxWidth()) {
+                        PikSwitchRow(
+                            label = stringResource(R.string.settings_lock),
+                            checked = state.lockEnabled,
+                            onCheckedChange = { wantOn ->
+                                if (!wantOn) {
+                                    viewModel.disableLock()
+                                } else {
+                                    // Only turn it on after the user proves they can unlock it.
+                                    val activity = context.findFragmentActivity()
+                                    if (activity != null) {
+                                        BiometricAuth.authenticate(
+                                            activity = activity,
+                                            title = lockPromptTitle,
+                                            subtitle = lockPromptSubtitle,
+                                            onSuccess = { viewModel.enableLock() },
+                                            onFailure = { },
+                                        )
+                                    }
+                                }
+                            },
+                            supporting = stringResource(R.string.settings_lock_hint),
+                            modifier = Modifier.padding(16.dp),
+                        )
+                    }
+                }
+
                 SectionTitle(stringResource(R.string.settings_backup))
                 PikCard(modifier = Modifier.fillMaxWidth()) {
                     Column(
@@ -333,6 +376,23 @@ fun SettingsScreen(
                             enabled = !state.busy,
                             modifier = Modifier.fillMaxWidth(),
                         )
+                        HorizontalDivider(color = PikColors.Outline)
+                        Text(
+                            text = stringResource(R.string.csv_title),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = PikColors.TextPrimary,
+                        )
+                        Text(
+                            text = stringResource(R.string.csv_explanation),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = PikColors.TextSecondary,
+                        )
+                        PikSecondaryButton(
+                            text = stringResource(R.string.csv_export),
+                            onClick = { csvLauncher.launch("pik-transactions-${LocalDate.now()}.csv") },
+                            enabled = !state.busy,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                     }
                 }
 
@@ -355,6 +415,25 @@ fun SettingsScreen(
                             color = PikColors.TextSecondary,
                         )
                     }
+                    HorizontalDivider(color = PikColors.Outline)
+                    Column(Modifier.padding(16.dp)) {
+                        Text(
+                            text = stringResource(R.string.about_data_local),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = PikColors.TextPrimary,
+                        )
+                        Text(
+                            text = stringResource(R.string.about_data_local_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = PikColors.TextSecondary,
+                        )
+                    }
+                    HorizontalDivider(color = PikColors.Outline)
+                    ValueRow(
+                        label = stringResource(R.string.about_licences),
+                        value = "",
+                        onClick = onOpenLicences,
+                    )
                 }
                 Text(
                     text = stringResource(R.string.about_offline),

@@ -74,4 +74,10 @@ class DateFormatsTest {
         assertEquals("Monday", DateFormats.weekdayName(java.time.DayOfWeek.MONDAY, en))
         assertEquals("luned\u00EC", DateFormats.weekdayName(java.time.DayOfWeek.MONDAY, ita))
     }
+
+    @Test fun monthShortIsCapitalisedWithoutDot() {
+        assertEquals("Nov", DateFormats.monthShort(java.time.YearMonth.of(2026, 11), en))
+        assertEquals("Nov", DateFormats.monthShort(java.time.YearMonth.of(2026, 11), ita))
+        assertEquals("Ott", DateFormats.monthShort(java.time.YearMonth.of(2026, 10), ita))
+    }
 }

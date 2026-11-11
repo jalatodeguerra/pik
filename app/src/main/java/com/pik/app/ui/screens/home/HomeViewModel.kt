@@ -11,6 +11,8 @@ import com.pik.app.data.repo.RecurringRepository
 import com.pik.app.data.repo.TransactionRepository
 import com.pik.app.domain.BalanceCalculator
 import com.pik.app.domain.DebtPaymentsDue
+import com.pik.app.domain.InsightTx
+import com.pik.app.domain.InsightsCalculator
 import com.pik.app.domain.Period
 import com.pik.app.domain.RecurringPlanner
 import com.pik.app.domain.SafeToSpend
@@ -53,6 +55,8 @@ data class HomeUiState(
     val today: LocalDate = LocalDate.now(),
     /** Number of recurring rules (for the Recurring shortcut). */
     val recurringCount: Int = 0,
+    /** Cumulative spending per day of the period up to today (the sparkline on the spending card). */
+    val spendingLine: List<Long> = emptyList(),
 )
 
 /** Debt figures Home needs: the open debts and the extra-per-month setting. */
@@ -160,6 +164,11 @@ class HomeViewModel @Inject constructor(
                     due = buildDueItems(plan.rules, settings.today),
                     today = settings.today,
                     recurringCount = plan.rules.size,
+                    spendingLine = InsightsCalculator.cumulativeSpending(
+                        periodRows.map { InsightTx(it.date, it.type, it.amountCents, it.categoryId, it.debtId) },
+                        period,
+                        settings.today,
+                    ),
                 )
             }
         }

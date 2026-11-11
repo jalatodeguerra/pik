@@ -3,6 +3,8 @@ package com.pik.app.ui.screens.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -250,20 +252,28 @@ private fun CategoryEditorDialog(
         ) {
             CategoryStyle.iconKeys.forEach { key ->
                 val selected = key == iconKey
+                // 48dp touch target around the 44dp circle
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(48.dp)
                         .clip(CircleShape)
-                        .background(if (selected) PikColors.Lime else PikColors.Surface)
-                        .clickable { iconKey = key },
+                        .selectable(selected = selected, role = Role.RadioButton) { iconKey = key },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
-                        imageVector = CategoryStyle.icon(key),
-                        contentDescription = null,
-                        tint = if (selected) PikColors.OnLime else PikColors.TextPrimary,
-                        modifier = Modifier.size(22.dp),
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(if (selected) PikColors.Lime else PikColors.Surface),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = CategoryStyle.icon(key),
+                            contentDescription = null,
+                            tint = if (selected) PikColors.OnLime else PikColors.TextPrimary,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
                 }
             }
         }
@@ -278,14 +288,22 @@ private fun CategoryEditorDialog(
         ) {
             CategoryStyle.colorKeys.forEach { key ->
                 val selected = key == colorKey
+                // 48dp touch target around the 36dp colour circle
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(48.dp)
                         .clip(CircleShape)
-                        .background(CategoryStyle.color(key))
-                        .then(if (selected) Modifier.border(3.dp, PikColors.TextPrimary, CircleShape) else Modifier)
-                        .clickable { colorKey = key },
-                )
+                        .selectable(selected = selected, role = Role.RadioButton) { colorKey = key },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(CategoryStyle.color(key))
+                            .then(if (selected) Modifier.border(3.dp, PikColors.TextPrimary, CircleShape) else Modifier),
+                    )
+                }
             }
         }
         if (item != null) {

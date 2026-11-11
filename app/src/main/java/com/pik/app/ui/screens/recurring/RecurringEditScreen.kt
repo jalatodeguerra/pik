@@ -188,7 +188,7 @@ private fun RecurringEditForm(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            if (ownedByDebt && existing != null) {
+            if (ownedByDebt) {
                 PikCard(modifier = Modifier.fillMaxWidth()) {
                     Column(
                         modifier = Modifier.padding(16.dp),
@@ -493,9 +493,9 @@ private fun RecurringEditForm(
                 if (valid && account != null) {
                     onSave(
                         RecurringInput(
-                            name = if (ownedByDebt && existing != null) existing.name else name.trim(),
-                            kind = if (ownedByDebt && existing != null) existing.kind else kind,
-                            amountCents = if (ownedByDebt && existing != null) existing.amountCents else amount ?: 0L,
+                            name = if (ownedByDebt) existing.name else name.trim(),
+                            kind = if (ownedByDebt) existing.kind else kind,
+                            amountCents = if (ownedByDebt) existing.amountCents else amount ?: 0L,
                             accountId = account,
                             categoryId = if (ownedByDebt) null else categoryId?.takeIf { id -> shownCategories.any { it.id == id } },
                             note = note.trim(),
