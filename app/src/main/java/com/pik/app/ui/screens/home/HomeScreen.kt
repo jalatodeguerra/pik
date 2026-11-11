@@ -1,5 +1,15 @@
 package com.pik.app.ui.screens.home
 
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import com.pik.app.domain.TransactionType
+import com.pik.app.ui.components.CheckBalanceDialog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -41,10 +51,16 @@ fun HomeScreen(
     onAddClick: () -> Unit,
     onSeeAll: () -> Unit,
     onTransactionClick: (Long) -> Unit,
+    onSettingsClick: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    HomeContent(state, onAddClick, onSeeAll, onTransactionClick)
+    // The month label and totals must follow the calendar if the app stays open across a month change.
+    LifecycleResumeEffect(Unit) {
+        viewModel.refreshMonth()
+        onPauseOrDispose { }
+    }
+    HomeContent(state, onAddClick, onSeeAll, onTransactionClick, onSettingsClick, viewModel::checkBalance)
 }
 
 @Composable
@@ -53,8 +69,19 @@ private fun HomeContent(
     onAddClick: () -> Unit,
     onSeeAll: () -> Unit,
     onTransactionClick: (Long) -> Unit,
+    onSettingsClick: () -> Unit,
+    onCheckBalance: (accountId: Long, realCents: Long, note: String) -> Unit,
 ) {
     val monthName = DateFormats.monthName(state.month)
+    var checking by remember { mutableStateOf<AccountWithBalance?>(null) }
+    CheckBalanceHost(
+        checking = checking,
+        onDismiss = { checking = null },
+        onConfirm = { id, real, note ->
+            onCheckBalance(id, real, note)
+            checking = null
+        },
+    )
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 32.dp),
@@ -71,11 +98,20 @@ private fun HomeContent(
                     style = MaterialTheme.typography.headlineLarge,
                     color = PikColors.Lime,
                 )
-                Text(
-                    text = DateFormats.monthYear(state.month),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = PikColors.TextSecondary,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = DateFormats.monthYear(state.month),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = PikColors.TextSecondary,
+                    )
+                    IconButton(onClick = onSettingsClick) {
+                        Icon(
+                            imageVector = Icons.Filled.Settings,
+                            contentDescription = stringResource(R.string.settings_title),
+                            tint = PikColors.TextPrimary,
+                        )
+                    }
+                }
             }
         }
         item {
@@ -151,7 +187,7 @@ private fun HomeContent(
             PikCard(modifier = Modifier.fillMaxWidth()) {
                 state.accounts.forEachIndexed { index, item ->
                     if (index > 0) HorizontalDivider(color = PikColors.Outline)
-                    AccountRow(item)
+                    AccountRow(item, onClick = { checking = item })
                 }
             }
         }
@@ -179,7 +215,10 @@ private fun HomeContent(
                             TransactionListItem(
                                 row = row,
                                 showDate = true,
-                                onClick = { onTransactionClick(row.id) },
+                                // Balance adjustments are managed in Activity, not edited in the Add screen.
+                                onClick = if (row.type == TransactionType.ADJUSTMENT) null else {
+                                    { onTransactionClick(row.id) }
+                                },
                             )
                         }
                     }
@@ -220,6 +259,18 @@ private fun HomeContent(
 }
 
 @Composable
+private fun CheckBalanceHost(checking: AccountWithBalance?, onDismiss: () -> Unit, onConfirm: (Long, Long, String) -> Unit) {
+    if (checking != null) {
+        CheckBalanceDialog(
+            accountName = checking.account.name,
+            currentCents = checking.balanceCents,
+            onDismiss = onDismiss,
+            onConfirm = { real, note -> onConfirm(checking.account.id, real, note) },
+        )
+    }
+}
+
+@Composable
 private fun MonthFlowCard(label: String, amount: String, color: androidx.compose.ui.graphics.Color, modifier: Modifier) {
     PikCard(modifier = modifier) {
         Column(Modifier.padding(16.dp)) {
@@ -240,10 +291,11 @@ private fun MonthFlowCard(label: String, amount: String, color: androidx.compose
 }
 
 @Composable
-private fun AccountRow(item: AccountWithBalance) {
+private fun AccountRow(item: AccountWithBalance, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),

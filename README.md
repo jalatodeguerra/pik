@@ -3,9 +3,29 @@
 Pik is an offline Android app for tracking your spending and paying off debt.
 Everything stays on your phone. There is no account, no server and no internet permission.
 
-Milestone 1 (this version): first-run setup, accounts (cash and bank), adding / editing
-expenses, income and transfers, an activity list by month, and a home screen with balances.
-Plan and Debts are placeholders for the next updates.
+Milestone 2 (this version) completes "track spending": first-run setup, accounts (cash and bank),
+adding / editing expenses, income and transfers, an activity list by month with search and
+filters, a home screen with balances, a Settings screen (accounts, categories, backup, about),
+balance checks and backup files. Plan and Debts are placeholders for the next updates.
+
+## Features
+
+- **Settings** (gear icon on Home): manage accounts and categories, save / restore a backup file,
+  app version.
+- **Accounts**: add, rename, change type (Cash / Bank), edit the starting balance, archive /
+  unarchive. An account with transactions can never be deleted (archive it); an unused one can.
+  Archived accounts are hidden from Home and the pickers, their transactions still show in Activity.
+  There is always at least one active account.
+- **Categories** (Expense and Income tabs): add with a name, icon and color, edit, archive /
+  unarchive, delete only when unused.
+- **Check balance** (Home: tap an account; Settings: the tune button on an account row): type what
+  your bank app shows. If it differs from Pik's balance, a signed `ADJUSTMENT` transaction dated
+  today (note "Balance check") is added. Adjustments show as "Balance adjustment" in Activity,
+  can be deleted there (with confirmation) but are not editable in the Add screen.
+- **Activity search and filters**: search the selected month by note, category or account name
+  (case-insensitive), filter by type (All / Expenses / Income / Transfers) and by account.
+- **App shortcut**: long-press the Pik icon and choose "Add expense" to open the Add screen
+  directly (only after first-run setup).
 
 ## Stack
 
@@ -39,8 +59,10 @@ Instrumented tests (`app/src/androidTest`, Room migration + balance query) run w
 app/src/main/java/com/pik/app/
   data/db       Room entities, DAOs, converters, PikDatabase
   data/repo     repositories (the only thing ViewModels talk to)
-  data/prefs    DataStore preferences (onboardingComplete, lastUsedAccountId)
-  domain        pure Kotlin, no Android: Money, AmountInput (keypad), BalanceCalculator, DateFormats
+  data/prefs    DataStore preferences (onboardingComplete, lastUsedAccountId, lastBackupEpochDay)
+  domain        pure Kotlin, no Android: Money, AmountInput (keypad), BalanceCalculator, BalanceCheck,
+                ActivityFilter, DateFormats
+  backup        backup file model and JSON (de)serialization with validation (org.json only)
   di            Hilt modules
   ui/theme      colors, fonts, category colors and icons
   ui/components shared composables
@@ -63,6 +85,26 @@ Layers: Compose screens -> ViewModels (one `StateFlow` UI state per screen) -> r
 - Debt payments will count as spending (later milestone); `debtId` is already reserved.
 
 ## Backup
+
+### Backup file (Settings -> Backup)
+
+"Save backup file" writes one JSON file, named `pik-backup-YYYY-MM-DD.json`, to a place you pick
+with the Android file picker (Storage Access Framework: no storage permission needed). It is a
+plain, readable file you can keep in your cloud storage or email to yourself:
+
+```
+{ "formatVersion": 1, "appVersion": "0.2.0", "exportedAt": "2026-11-10T09:30:00Z",
+  "accounts": [...], "categories": [...], "transactions": [...] }
+```
+
+Every column of every row is included, money is integer cents and dates are ISO `yyyy-MM-dd`.
+"Restore from file" validates the file first (format version, ids, and that every transaction
+points to an existing account / category) and shows how many accounts, categories and transactions
+it holds. After you confirm ("This replaces everything in Pik with the backup") the database is
+emptied and refilled with the original ids in a single Room transaction, so a failure changes
+nothing. The date of the last saved file is shown under Backup ("Last saved: 10 Nov 2026").
+
+### Automatic backup
 
 Android Auto Backup to Google is enabled. The Room database and the DataStore file are
 included for cloud backup and device-to-device transfer (`res/xml/backup_rules.xml` and

@@ -9,18 +9,23 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SegmentedButton
@@ -291,3 +296,48 @@ fun TransactionListItem(
     }
 }
 
+
+/** Top bar for pushed screens: back arrow and title. */
+@Composable
+fun PikBackTopBar(title: String, onBack: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onBack) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = stringResource(R.string.action_back),
+                tint = PikColors.TextPrimary,
+            )
+        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+            color = PikColors.TextPrimary,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+/** Text-only selectable chip with explicit colors. */
+@Composable
+fun PikFilterChip(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        modifier = modifier,
+        label = { Text(text = label, style = MaterialTheme.typography.labelLarge, maxLines = 1) },
+        shape = RoundedCornerShape(12.dp),
+        colors = FilterChipDefaults.filterChipColors(
+            containerColor = PikColors.Surface,
+            labelColor = PikColors.TextPrimary,
+            selectedContainerColor = PikColors.Lime,
+            selectedLabelColor = PikColors.OnLime,
+        ),
+        border = null,
+    )
+}

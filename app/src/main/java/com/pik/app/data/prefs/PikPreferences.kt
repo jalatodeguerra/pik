@@ -26,6 +26,13 @@ class PikPreferences @Inject constructor(
 
     val lastUsedAccountId: Flow<Long?> = store.data.map { it[KEY_LAST_USED_ACCOUNT_ID] }
 
+    /** Calendar day (epoch day) of the last backup file saved, or null when never. */
+    val lastBackupEpochDay: Flow<Long?> = store.data.map { it[KEY_LAST_BACKUP_EPOCH_DAY] }
+
+    suspend fun setLastBackupEpochDay(epochDay: Long) {
+        store.edit { it[KEY_LAST_BACKUP_EPOCH_DAY] = epochDay }
+    }
+
     suspend fun setOnboardingComplete(value: Boolean) {
         store.edit { it[KEY_ONBOARDING_COMPLETE] = value }
     }
@@ -37,5 +44,6 @@ class PikPreferences @Inject constructor(
     private companion object {
         val KEY_ONBOARDING_COMPLETE = booleanPreferencesKey("onboardingComplete")
         val KEY_LAST_USED_ACCOUNT_ID = longPreferencesKey("lastUsedAccountId")
+        val KEY_LAST_BACKUP_EPOCH_DAY = longPreferencesKey("lastBackupEpochDay")
     }
 }

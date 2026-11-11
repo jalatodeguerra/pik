@@ -1,9 +1,13 @@
 package com.pik.app.data.repo
 
+import com.pik.app.data.db.AccountDao
 import com.pik.app.data.db.TransactionDao
 import com.pik.app.data.db.TransactionEntity
 import com.pik.app.data.db.TransactionRow
+import com.pik.app.domain.BalanceCheck
+import com.pik.app.domain.TransactionType
 import kotlinx.coroutines.flow.Flow
+import java.time.LocalDate
 import java.time.YearMonth
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -11,6 +15,7 @@ import javax.inject.Singleton
 @Singleton
 class TransactionRepository @Inject constructor(
     private val dao: TransactionDao,
+    private val accountDao: AccountDao,
 ) {
     fun observeMonth(month: YearMonth): Flow<List<TransactionRow>> =
         dao.observeBetween(month.atDay(1).toEpochDay(), month.atEndOfMonth().toEpochDay())
@@ -35,4 +40,27 @@ class TransactionRepository @Inject constructor(
     }
 
     suspend fun delete(id: Long) = dao.deleteById(id)
+
+    /**
+     * Compares [realCents] with Pik's calculated balance of the account and, when they differ,
+     * inserts an ADJUSTMENT dated today. Returns the signed adjustment (0 when it already matches).
+     */
+    suspend fun applyBalanceCheck(accountId: Long, realCents: Long, note: String): Long {
+        val current = accountDao.balanceOf(accountId)?.balanceCents ?: return 0L
+        val adjustment = BalanceCheck.adjustmentCents(realCents, current)
+        if (adjustment == 0L) return 0L
+        val now = System.currentTimeMillis()
+        dao.insert(
+            TransactionEntity(
+                type = TransactionType.ADJUSTMENT,
+                amountCents = adjustment,
+                date = LocalDate.now(),
+                accountId = accountId,
+                note = note,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
+        return adjustment
+    }
 }

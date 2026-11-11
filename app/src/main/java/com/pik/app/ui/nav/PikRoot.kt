@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -25,22 +26,31 @@ import com.pik.app.ui.screens.firstrun.FirstRunScreen
 import com.pik.app.ui.screens.home.HomeScreen
 import com.pik.app.ui.screens.placeholder.DebtsScreen
 import com.pik.app.ui.screens.placeholder.PlanScreen
+import com.pik.app.ui.screens.settings.CategoriesScreen
+import com.pik.app.ui.screens.settings.SettingsScreen
 import com.pik.app.ui.theme.PikColors
 
 @Composable
-fun PikRoot(mainViewModel: MainViewModel = hiltViewModel()) {
+fun PikRoot(quickAddToken: Int = 0, mainViewModel: MainViewModel = hiltViewModel()) {
     val start by mainViewModel.startDestination.collectAsStateWithLifecycle()
     val startDestination = start
     if (startDestination == null) {
         Box(Modifier.fillMaxSize().background(PikColors.Background))
         return
     }
-    PikNavigation(startDestination)
+    PikNavigation(startDestination, quickAddToken)
 }
 
 @Composable
-private fun PikNavigation(startDestination: String) {
+private fun PikNavigation(startDestination: String, quickAddToken: Int) {
     val navController = rememberNavController()
+
+    // App shortcut "Add expense": open the Add screen, but only once onboarding is complete.
+    LaunchedEffect(quickAddToken) {
+        if (quickAddToken > 0 && startDestination != Routes.FIRST_RUN) {
+            navController.navigate(Routes.add()) { launchSingleTop = true }
+        }
+    }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
@@ -79,12 +89,22 @@ private fun PikNavigation(startDestination: String) {
                     onAddClick = { navController.navigate(Routes.add()) },
                     onSeeAll = { navController.navigateToTab(Routes.ACTIVITY) },
                     onTransactionClick = { id -> navController.navigate(Routes.edit(id)) },
+                    onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                 )
             }
             composable(Routes.ACTIVITY) {
                 ActivityScreen(
                     onTransactionClick = { id -> navController.navigate(Routes.edit(id)) },
                 )
+            }
+            composable(Routes.SETTINGS) {
+                SettingsScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenCategories = { navController.navigate(Routes.CATEGORIES) },
+                )
+            }
+            composable(Routes.CATEGORIES) {
+                CategoriesScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.PLAN) { PlanScreen() }
             composable(Routes.DEBTS) { DebtsScreen() }

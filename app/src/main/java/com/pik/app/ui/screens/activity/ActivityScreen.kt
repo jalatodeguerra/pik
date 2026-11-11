@@ -1,5 +1,21 @@
 package com.pik.app.ui.screens.activity
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.input.ImeAction
+import com.pik.app.domain.TypeFilter
+import com.pik.app.ui.components.PikConfirmDialog
+import com.pik.app.ui.components.PikFilterChip
+import com.pik.app.ui.components.pikTextFieldColors
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,7 +62,11 @@ fun ActivityScreen(
         state = state,
         onPrevious = viewModel::previousMonth,
         onNext = viewModel::nextMonth,
+        onQueryChange = viewModel::setQuery,
+        onTypeFilter = viewModel::setTypeFilter,
+        onAccountFilter = viewModel::setAccountFilter,
         onTransactionClick = onTransactionClick,
+        onDeleteAdjustment = viewModel::deleteTransaction,
     )
 }
 
@@ -55,9 +75,16 @@ private fun ActivityContent(
     state: ActivityUiState,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
+    onQueryChange: (String) -> Unit,
+    onTypeFilter: (TypeFilter) -> Unit,
+    onAccountFilter: (Long?) -> Unit,
     onTransactionClick: (Long) -> Unit,
+    onDeleteAdjustment: (Long) -> Unit,
 ) {
     val today = LocalDate.now()
+    // The text field keeps its own copy so typing never fights with state round trips.
+    var queryText by rememberSaveable { mutableStateOf(state.query) }
+    var adjustmentToDelete by remember { mutableStateOf<Long?>(null) }
     Column(Modifier.fillMaxSize()) {
         Text(
             text = stringResource(R.string.activity_title),
@@ -93,6 +120,76 @@ private fun ActivityContent(
             }
         }
 
+        OutlinedTextField(
+            value = queryText,
+            onValueChange = {
+                queryText = it
+                onQueryChange(it)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            placeholder = { Text(stringResource(R.string.activity_search_hint)) },
+            leadingIcon = {
+                Icon(imageVector = Icons.Filled.Search, contentDescription = null, tint = PikColors.TextSecondary)
+            },
+            trailingIcon = {
+                if (queryText.isNotEmpty()) {
+                    IconButton(onClick = {
+                        queryText = ""
+                        onQueryChange("")
+                    }) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = stringResource(R.string.activity_search_clear),
+                            tint = PikColors.TextPrimary,
+                        )
+                    }
+                }
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(16.dp),
+            colors = pikTextFieldColors(),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            TypeFilter.entries.forEach { filter ->
+                PikFilterChip(
+                    label = stringResource(filter.labelRes()),
+                    selected = state.typeFilter == filter,
+                    onClick = { onTypeFilter(filter) },
+                )
+            }
+        }
+        if (state.accounts.size > 1) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                PikFilterChip(
+                    label = stringResource(R.string.filter_all_accounts),
+                    selected = state.accountFilter == null,
+                    onClick = { onAccountFilter(null) },
+                )
+                state.accounts.forEach { account ->
+                    PikFilterChip(
+                        label = account.name,
+                        selected = state.accountFilter == account.id,
+                        onClick = { onAccountFilter(account.id) },
+                    )
+                }
+            }
+        }
+
         if (!state.isLoading && state.groups.isEmpty()) {
             Box(
                 modifier = Modifier
@@ -101,7 +198,9 @@ private fun ActivityContent(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = stringResource(R.string.activity_empty),
+                    text = stringResource(
+                        if (state.filtering) R.string.activity_no_matches else R.string.activity_empty,
+                    ),
                     style = MaterialTheme.typography.bodyLarge,
                     color = PikColors.TextSecondary,
                     textAlign = TextAlign.Center,
@@ -127,8 +226,10 @@ private fun ActivityContent(
                                 TransactionListItem(
                                     row = row,
                                     showDate = false,
-                                    // Adjustments cannot be edited from the Add screen in this milestone.
-                                    onClick = if (row.type == TransactionType.ADJUSTMENT) null else {
+                                    // Adjustments are not editable in the Add screen, only deletable.
+                                    onClick = if (row.type == TransactionType.ADJUSTMENT) {
+                                        { adjustmentToDelete = row.id }
+                                    } else {
                                         { onTransactionClick(row.id) }
                                     },
                                 )
@@ -139,6 +240,27 @@ private fun ActivityContent(
             }
         }
     }
+
+    adjustmentToDelete?.let { id ->
+        PikConfirmDialog(
+            title = stringResource(R.string.delete_adjustment_title),
+            message = stringResource(R.string.delete_adjustment_message),
+            confirmLabel = stringResource(R.string.action_delete),
+            onConfirm = {
+                adjustmentToDelete = null
+                onDeleteAdjustment(id)
+            },
+            onDismiss = { adjustmentToDelete = null },
+            destructive = true,
+        )
+    }
+}
+
+private fun TypeFilter.labelRes(): Int = when (this) {
+    TypeFilter.ALL -> R.string.filter_all
+    TypeFilter.EXPENSE -> R.string.filter_expenses
+    TypeFilter.INCOME -> R.string.filter_income
+    TypeFilter.TRANSFER -> R.string.filter_transfers
 }
 
 @Composable

@@ -78,6 +78,11 @@ class AddTransactionViewModel @Inject constructor(
             val lastUsed = prefs.lastUsedAccountId.first()
             val existing = editingId?.let { transactions.get(it) }
             original = existing
+            if (existing?.type == TransactionType.ADJUSTMENT) {
+                // Balance adjustments are not editable here (they can be deleted from Activity).
+                _state.update { it.copy(isLoading = false, finished = true) }
+                return@launch
+            }
             _state.update { s ->
                 if (existing != null) {
                     s.copy(
@@ -95,7 +100,12 @@ class AddTransactionViewModel @Inject constructor(
                 }
             }
             launch {
-                accountRepository.observeAccounts().collect { accounts -> onAccounts(accounts, lastUsed) }
+                // Archived accounts are hidden from the pickers, except the ones this transaction
+                // already uses, so editing never silently moves it to another account.
+                val keep = setOfNotNull(existing?.accountId, existing?.toAccountId)
+                accountRepository.observeAllAccounts().collect { all ->
+                    onAccounts(all.filter { !it.archived || it.id in keep }, lastUsed)
+                }
             }
             launch {
                 _state.map { it.type }

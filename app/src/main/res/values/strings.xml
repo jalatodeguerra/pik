@@ -76,6 +76,93 @@
     <string name="home_empty_message">Add your first expense or income to see it here.</string>
     <string name="home_empty_button">Add your first transaction</string>
 
+    <!-- Common additions -->
+    <string name="action_back">Back</string>
+    <string name="action_save">Save</string>
+    <string name="action_archive">Archive</string>
+    <string name="action_unarchive">Unarchive</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_accounts">Accounts</string>
+    <string name="settings_categories">Categories</string>
+    <string name="settings_manage_categories">Manage categories</string>
+    <string name="settings_backup">Backup</string>
+    <string name="settings_about">About</string>
+    <string name="about_version">Version</string>
+    <string name="about_offline">Pik works fully offline. Your data never leaves your phone unless you save a backup file.</string>
+
+    <!-- Accounts -->
+    <string name="account_add">Add account</string>
+    <string name="account_new_title">New account</string>
+    <string name="account_edit_title">Edit account</string>
+    <string name="account_archived">Archived</string>
+    <string name="account_check_balance">Check balance</string>
+    <string name="account_archive_hint">Archived accounts are hidden from Home and the pickers. Their transactions stay in Activity.</string>
+    <string name="account_cannot_archive_last">You need at least one active account.</string>
+    <string name="account_delete_blocked">This account has transactions, so it cannot be deleted. Archive it instead.</string>
+    <string name="account_delete_title">Delete this account?</string>
+    <string name="account_in_use">This account has transactions and cannot be deleted.</string>
+
+    <!-- Categories -->
+    <string name="categories_title">Categories</string>
+    <string name="category_add">Add category</string>
+    <string name="category_new_title">New category</string>
+    <string name="category_edit_title">Edit category</string>
+    <string name="category_name">Category name</string>
+    <string name="category_icon">Icon</string>
+    <string name="category_color">Color</string>
+    <string name="category_archive_hint">Archived categories are hidden when adding transactions. Existing transactions keep them.</string>
+    <string name="category_cannot_archive_last">You need at least one active category of this kind.</string>
+    <string name="category_delete_blocked">This category is used by transactions, so it cannot be deleted. Archive it instead.</string>
+    <string name="category_delete_title">Delete this category?</string>
+    <string name="category_in_use">This category is used by transactions and cannot be deleted.</string>
+
+    <!-- Check balance -->
+    <string name="check_balance_title">Check balance: %1$s</string>
+    <string name="check_balance_pik_says">Pik says you have %1$s</string>
+    <string name="check_balance_field">Type what your bank app shows</string>
+    <string name="check_balance_hint">Type the real balance, for example 1.234,56</string>
+    <string name="check_balance_invalid">This is not a valid amount.</string>
+    <string name="check_balance_matches">Already matches</string>
+    <string name="check_balance_difference">Pik will add an adjustment of %1$s</string>
+    <string name="check_balance_adjust">Adjust</string>
+    <string name="balance_check_note">Balance check</string>
+    <string name="delete_adjustment_title">Delete this balance adjustment?</string>
+    <string name="delete_adjustment_message">The account balance changes back. This cannot be undone.</string>
+
+    <!-- Backup -->
+    <string name="backup_last_saved">Last saved: %1$s</string>
+    <string name="backup_never">Never</string>
+    <string name="backup_explanation">Save all your accounts, categories and transactions to one file. Keep it somewhere safe, for example in your cloud storage.</string>
+    <string name="backup_save">Save backup file</string>
+    <string name="backup_restore">Restore from file</string>
+    <string name="backup_restore_confirm">Restore</string>
+    <string name="backup_saved">Backup saved</string>
+    <string name="backup_failed">Could not save the backup file.</string>
+    <string name="restore_confirm_title">Restore this backup?</string>
+    <string name="restore_confirm_message">This replaces everything in Pik with the backup. The file has %1$d accounts, %2$d categories and %3$d transactions.</string>
+    <string name="restore_done">Backup restored</string>
+    <string name="restore_read_failed">Could not read that file.</string>
+    <string name="restore_not_a_backup">This file is not a Pik backup.</string>
+    <string name="restore_unsupported_version">This backup was made by a newer version of Pik. Update the app and try again.</string>
+    <string name="restore_invalid_data">This backup file is damaged or incomplete. Nothing was changed.</string>
+    <string name="restore_failed">Restore failed. Nothing was changed.</string>
+
+    <!-- Activity search and filters -->
+    <string name="activity_search_hint">Search note, category or account</string>
+    <string name="activity_search_clear">Clear search</string>
+    <string name="activity_no_matches">No transactions match your search or filters.</string>
+    <string name="filter_all">All</string>
+    <string name="filter_expenses">Expenses</string>
+    <string name="filter_income">Income</string>
+    <string name="filter_transfers">Transfers</string>
+    <string name="filter_all_accounts">All accounts</string>
+
+    <!-- App shortcut -->
+    <string name="shortcut_add_expense_short">Add expense</string>
+    <string name="shortcut_add_expense_long">Add an expense</string>
+
     <!-- Placeholders -->
     <string name="plan_title">Plan</string>
     <string name="plan_coming_soon">Budgets and recurring payments are coming in the next updates.</string>

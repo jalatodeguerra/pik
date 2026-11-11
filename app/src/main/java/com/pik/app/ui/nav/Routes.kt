@@ -6,6 +6,8 @@ object Routes {
     const val ACTIVITY = "activity"
     const val PLAN = "plan"
     const val DEBTS = "debts"
+    const val SETTINGS = "settings"
+    const val CATEGORIES = "settings/categories"
 
     const val ARG_TRANSACTION_ID = "transactionId"
     const val ADD = "add?$ARG_TRANSACTION_ID={$ARG_TRANSACTION_ID}"

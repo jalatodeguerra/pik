@@ -55,6 +55,12 @@ object CategoryStyle {
         "income" to Icons.Filled.AddCircle,
     )
 
+    /** Palette keys in display order. */
+    val colorKeys: List<String> = colors.keys.toList()
+
+    /** Icon keys in display order. */
+    val iconKeys: List<String> = icons.keys.toList()
+
     fun color(key: String?): Color = colors[key] ?: PikColors.TextSecondary
 
     fun icon(key: String?): ImageVector = icons[key] ?: Icons.Filled.MoreHoriz

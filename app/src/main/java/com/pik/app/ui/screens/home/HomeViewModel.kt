@@ -9,10 +9,15 @@ import com.pik.app.data.repo.TransactionRepository
 import com.pik.app.domain.BalanceCalculator
 import com.pik.app.domain.TxFacts
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import java.time.YearMonth
 import javax.inject.Inject
 
@@ -30,15 +35,23 @@ data class HomeUiState(
     val hasTransactions: Boolean = false,
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     accountRepository: AccountRepository,
-    transactionRepository: TransactionRepository,
+    private val transactionRepository: TransactionRepository,
 ) : ViewModel() {
 
-    private val month: YearMonth = YearMonth.now()
+    private val monthFlow = MutableStateFlow(YearMonth.now())
 
-    val state: StateFlow<HomeUiState> = combine(
+    /** Call when the screen resumes: moves to the new month if the app stayed open past midnight. */
+    fun refreshMonth() = monthFlow.update { YearMonth.now() }
+
+    fun checkBalance(accountId: Long, realCents: Long, note: String) {
+        viewModelScope.launch { transactionRepository.applyBalanceCheck(accountId, realCents, note) }
+    }
+
+    val state: StateFlow<HomeUiState> = monthFlow.flatMapLatest { month -> combine(
         accountRepository.observeAccounts(),
         accountRepository.observeBalances(),
         transactionRepository.observeMonth(month),
@@ -59,7 +72,7 @@ class HomeViewModel @Inject constructor(
             recent = recent,
             hasTransactions = count > 0,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState(month = month))
+    } }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState(month = monthFlow.value))
 
     private companion object {
         const val RECENT_COUNT = 5
