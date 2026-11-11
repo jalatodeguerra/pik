@@ -6,6 +6,7 @@ data class TxFacts(
     val amountCents: Long,
     val accountId: Long,
     val toAccountId: Long?,
+    val categoryId: Long? = null,
 )
 
 data class MonthTotals(val incomeCents: Long, val expenseCents: Long)

@@ -41,6 +41,16 @@ data class BackupTransaction(
     val updatedAt: Long,
 )
 
+data class BackupBudget(
+    val id: Long,
+    /** null = the overall budget. */
+    val categoryId: Long?,
+    val limitCents: Long,
+    /** Calendar month "yyyy-MM" from which this limit applies. */
+    val startPeriod: String,
+    val createdAt: Long,
+)
+
 data class BackupFile(
     val formatVersion: Int,
     val appVersion: String,
@@ -49,6 +59,8 @@ data class BackupFile(
     val accounts: List<BackupAccount>,
     val categories: List<BackupCategory>,
     val transactions: List<BackupTransaction>,
+    /** Empty for formatVersion 1 files (they have no budgets). */
+    val budgets: List<BackupBudget> = emptyList(),
 )
 
 enum class BackupError {

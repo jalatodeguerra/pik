@@ -5,8 +5,10 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.pik.app.domain.Period
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -33,6 +35,23 @@ class PikPreferences @Inject constructor(
         store.edit { it[KEY_LAST_BACKUP_EPOCH_DAY] = epochDay }
     }
 
+    /** Day of the month (1..28) on which the "month" starts. Default 1 = calendar months. */
+    val monthStartDay: Flow<Int> = store.data.map { Period.clampStartDay(it[KEY_MONTH_START_DAY] ?: 1) }
+
+    /** Expected monthly income in cents, or null when not set. */
+    val expectedIncomeCents: Flow<Long?> = store.data.map { it[KEY_EXPECTED_INCOME_CENTS] }
+
+    suspend fun setMonthStartDay(day: Int) {
+        store.edit { it[KEY_MONTH_START_DAY] = Period.clampStartDay(day) }
+    }
+
+    /** null clears the setting. */
+    suspend fun setExpectedIncomeCents(cents: Long?) {
+        store.edit {
+            if (cents == null) it.remove(KEY_EXPECTED_INCOME_CENTS) else it[KEY_EXPECTED_INCOME_CENTS] = cents
+        }
+    }
+
     suspend fun setOnboardingComplete(value: Boolean) {
         store.edit { it[KEY_ONBOARDING_COMPLETE] = value }
     }
@@ -45,5 +64,7 @@ class PikPreferences @Inject constructor(
         val KEY_ONBOARDING_COMPLETE = booleanPreferencesKey("onboardingComplete")
         val KEY_LAST_USED_ACCOUNT_ID = longPreferencesKey("lastUsedAccountId")
         val KEY_LAST_BACKUP_EPOCH_DAY = longPreferencesKey("lastBackupEpochDay")
+        val KEY_MONTH_START_DAY = intPreferencesKey("monthStartDay")
+        val KEY_EXPECTED_INCOME_CENTS = longPreferencesKey("expectedIncomeCents")
     }
 }

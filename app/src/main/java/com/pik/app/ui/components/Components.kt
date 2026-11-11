@@ -341,3 +341,23 @@ fun PikFilterChip(label: String, selected: Boolean, onClick: () -> Unit, modifie
         border = null,
     )
 }
+
+/** Thin rounded progress bar: [fraction] 0..1 filled with [color] over an outline-colored track. */
+@Composable
+fun PikProgressBar(fraction: Float, color: Color, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(8.dp)
+            .clip(RoundedCornerShape(4.dp))
+            .background(PikColors.Outline),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(fraction.coerceIn(0f, 1f))
+                .height(8.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(color),
+        )
+    }
+}

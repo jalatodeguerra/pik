@@ -49,6 +49,9 @@ interface CategoryDao {
     fun observeWithUsage(kind: CategoryKind): Flow<List<CategoryWithUsage>>
 
     @Query("SELECT * FROM categories")
+    fun observeAll(): Flow<List<CategoryEntity>>
+
+    @Query("SELECT * FROM categories")
     suspend fun getAll(): List<CategoryEntity>
 
     @Query("SELECT * FROM categories WHERE id = :id")

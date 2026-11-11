@@ -2,12 +2,15 @@ package com.pik.app.data.repo
 
 import androidx.room.withTransaction
 import com.pik.app.backup.BackupAccount
+import com.pik.app.backup.BackupBudget
 import com.pik.app.backup.BackupCategory
 import com.pik.app.backup.BackupFile
 import com.pik.app.backup.BackupJson
 import com.pik.app.backup.BackupTransaction
 import com.pik.app.data.db.AccountDao
 import com.pik.app.data.db.AccountEntity
+import com.pik.app.data.db.BudgetDao
+import com.pik.app.data.db.BudgetEntity
 import com.pik.app.data.db.CategoryDao
 import com.pik.app.data.db.CategoryEntity
 import com.pik.app.data.db.PikDatabase
@@ -24,6 +27,7 @@ class BackupRepository @Inject constructor(
     private val accountDao: AccountDao,
     private val categoryDao: CategoryDao,
     private val transactionDao: TransactionDao,
+    private val budgetDao: BudgetDao,
 ) {
     /** Consistent snapshot of every row, serialized as the backup JSON text. */
     suspend fun export(appVersion: String): String {
@@ -35,6 +39,7 @@ class BackupRepository @Inject constructor(
                 accounts = accountDao.getAll().map { it.toBackup() },
                 categories = categoryDao.getAll().map { it.toBackup() },
                 transactions = transactionDao.getAll().map { it.toBackup() },
+                budgets = budgetDao.getAll().map { it.toBackup() },
             )
         }
         return BackupJson.serialize(file)
@@ -48,11 +53,13 @@ class BackupRepository @Inject constructor(
         BackupJson.validate(file)
         db.withTransaction {
             transactionDao.deleteAll()
+            budgetDao.deleteAll()
             categoryDao.deleteAll()
             accountDao.deleteAll()
             accountDao.insertAll(file.accounts.map { it.toEntity() })
             categoryDao.insertAll(file.categories.map { it.toEntity() })
             transactionDao.insertAll(file.transactions.map { it.toEntity() })
+            budgetDao.insertAll(file.budgets.map { it.toEntity() })
         }
     }
 }
@@ -67,6 +74,10 @@ private fun TransactionEntity.toBackup() = BackupTransaction(
     id, type, amountCents, date, accountId, toAccountId, categoryId, note, debtId, recurringId,
     createdAt, updatedAt,
 )
+
+private fun BudgetEntity.toBackup() = BackupBudget(id, categoryId, limitCents, startPeriod, createdAt)
+
+private fun BackupBudget.toEntity() = BudgetEntity(id, categoryId, limitCents, startPeriod, createdAt)
 
 private fun BackupAccount.toEntity() =
     AccountEntity(id, name, type, startingBalanceCents, archived, sortOrder, createdAt)

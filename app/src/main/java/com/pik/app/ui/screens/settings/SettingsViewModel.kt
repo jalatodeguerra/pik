@@ -57,6 +57,8 @@ enum class SettingsMessage {
 data class SettingsUiState(
     val accounts: List<SettingsAccount> = emptyList(),
     val lastBackupEpochDay: Long? = null,
+    val monthStartDay: Int = 1,
+    val expectedIncomeCents: Long? = null,
     val versionName: String = "",
     val busy: Boolean = false,
     val pendingRestore: PendingRestore? = null,
@@ -100,10 +102,14 @@ class SettingsViewModel @Inject constructor(
         accountItems,
         prefs.lastBackupEpochDay,
         localState,
-    ) { accounts, lastBackup, t ->
+        prefs.monthStartDay,
+        prefs.expectedIncomeCents,
+    ) { accounts, lastBackup, t, startDay, expectedIncome ->
         SettingsUiState(
             accounts = accounts,
             lastBackupEpochDay = lastBackup,
+            monthStartDay = startDay,
+            expectedIncomeCents = expectedIncome,
             versionName = versionName,
             busy = t.busy,
             pendingRestore = t.pendingRestore,
@@ -146,6 +152,17 @@ class SettingsViewModel @Inject constructor(
 
     fun checkBalance(accountId: Long, realCents: Long, note: String) {
         viewModelScope.launch { transactionRepository.applyBalanceCheck(accountId, realCents, note) }
+    }
+
+    // ---- plan ----
+
+    fun setMonthStartDay(day: Int) {
+        viewModelScope.launch { prefs.setMonthStartDay(day) }
+    }
+
+    /** null clears the expected income. */
+    fun setExpectedIncome(cents: Long?) {
+        viewModelScope.launch { prefs.setExpectedIncomeCents(cents) }
     }
 
     // ---- backup ----

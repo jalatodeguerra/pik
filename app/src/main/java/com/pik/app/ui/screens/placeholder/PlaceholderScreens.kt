@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -44,16 +43,6 @@ private fun ComingSoon(icon: ImageVector, tint: androidx.compose.ui.graphics.Col
             modifier = Modifier.padding(top = 8.dp),
         )
     }
-}
-
-@Composable
-fun PlanScreen() {
-    ComingSoon(
-        icon = Icons.Filled.CalendarMonth,
-        tint = PikColors.Amber,
-        title = stringResource(R.string.plan_title),
-        message = stringResource(R.string.plan_coming_soon),
-    )
 }
 
 @Composable

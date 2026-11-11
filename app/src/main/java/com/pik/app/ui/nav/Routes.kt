@@ -6,6 +6,7 @@ object Routes {
     const val ACTIVITY = "activity"
     const val PLAN = "plan"
     const val DEBTS = "debts"
+    const val BUDGETS = "plan/budgets"
     const val SETTINGS = "settings"
     const val CATEGORIES = "settings/categories"
 

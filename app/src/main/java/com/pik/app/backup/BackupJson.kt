@@ -8,11 +8,14 @@ import org.json.JSONObject
 import java.time.LocalDate
 
 /**
- * Backup file format (formatVersion 1): one JSON object with the header fields and three arrays
- * holding every column of every row. Dates are ISO yyyy-MM-dd, money is integer cents.
+ * Backup file format: one JSON object with the header fields and one array per table holding
+ * every column of every row. Dates are ISO yyyy-MM-dd, money is integer cents.
+ * formatVersion 2 added the "budgets" array; version 1 files (no budgets) can still be read.
  */
 object BackupJson {
-    const val FORMAT_VERSION = 1
+    const val FORMAT_VERSION = 2
+    private const val OLDEST_SUPPORTED_VERSION = 1
+    private val PERIOD_KEY = Regex("""\d{4}-(0[1-9]|1[0-2])""")
 
     fun serialize(file: BackupFile): String {
         val root = JSONObject()
@@ -25,6 +28,9 @@ object BackupJson {
             "transactions",
             JSONArray().also { arr -> file.transactions.forEach { arr.put(transactionToJson(it)) } },
         )
+        if (file.formatVersion >= 2) {
+            root.put("budgets", JSONArray().also { arr -> file.budgets.forEach { arr.put(budgetToJson(it)) } })
+        }
         return root.toString(2)
     }
 
@@ -43,7 +49,9 @@ object BackupJson {
         } catch (e: Exception) {
             throw BackupFormatException(BackupError.NOT_A_BACKUP)
         }
-        if (version != FORMAT_VERSION) throw BackupFormatException(BackupError.UNSUPPORTED_VERSION)
+        if (version !in OLDEST_SUPPORTED_VERSION..FORMAT_VERSION) {
+            throw BackupFormatException(BackupError.UNSUPPORTED_VERSION)
+        }
 
         val file = try {
             BackupFile(
@@ -53,6 +61,7 @@ object BackupJson {
                 accounts = root.getJSONArray("accounts").mapObjects(::accountFromJson),
                 categories = root.getJSONArray("categories").mapObjects(::categoryFromJson),
                 transactions = root.getJSONArray("transactions").mapObjects(::transactionFromJson),
+                budgets = if (version >= 2) root.getJSONArray("budgets").mapObjects(::budgetFromJson) else emptyList(),
             )
         } catch (e: Exception) {
             throw BackupFormatException(BackupError.INVALID_DATA)
@@ -65,7 +74,10 @@ object BackupJson {
     fun validate(file: BackupFile) {
         fun invalid(): Nothing = throw BackupFormatException(BackupError.INVALID_DATA)
 
-        if (file.formatVersion != FORMAT_VERSION) throw BackupFormatException(BackupError.UNSUPPORTED_VERSION)
+        if (file.formatVersion !in OLDEST_SUPPORTED_VERSION..FORMAT_VERSION) {
+            throw BackupFormatException(BackupError.UNSUPPORTED_VERSION)
+        }
+        if (file.formatVersion < 2 && file.budgets.isNotEmpty()) invalid()
         if (file.accounts.isEmpty()) invalid()
         val accountIds = file.accounts.map { it.id }
         val categoryIds = file.categories.map { it.id }
@@ -84,6 +96,15 @@ object BackupJson {
                 invalid()
             }
             if (tx.type != TransactionType.ADJUSTMENT && tx.amountCents < 0) invalid()
+        }
+        val budgetIds = file.budgets.map { it.id }
+        if (budgetIds.any { it <= 0 } || budgetIds.toSet().size != budgetIds.size) invalid()
+        // One row per (category, month); the overall budget (null category) counts as one category.
+        if (file.budgets.map { it.categoryId to it.startPeriod }.toSet().size != file.budgets.size) invalid()
+        for (b in file.budgets) {
+            if (b.categoryId != null && b.categoryId !in categorySet) invalid()
+            if (b.limitCents < 0) invalid()
+            if (!PERIOD_KEY.matches(b.startPeriod)) invalid()
         }
     }
 
@@ -128,6 +149,14 @@ object BackupJson {
         put("updatedAt", t.updatedAt)
     }
 
+    private fun budgetToJson(b: BackupBudget) = JSONObject().apply {
+        put("id", b.id)
+        putNullable("categoryId", b.categoryId)
+        put("limitCents", b.limitCents)
+        put("startPeriod", b.startPeriod)
+        put("createdAt", b.createdAt)
+    }
+
     // ---- from JSON ----
 
     private fun <T> JSONArray.mapObjects(transform: (JSONObject) -> T): List<T> =
@@ -168,5 +197,13 @@ object BackupJson {
         recurringId = o.nullableLong("recurringId"),
         createdAt = o.getLong("createdAt"),
         updatedAt = o.getLong("updatedAt"),
+    )
+
+    private fun budgetFromJson(o: JSONObject) = BackupBudget(
+        id = o.getLong("id"),
+        categoryId = o.nullableLong("categoryId"),
+        limitCents = o.getLong("limitCents"),
+        startPeriod = o.getString("startPeriod"),
+        createdAt = o.getLong("createdAt"),
     )
 }

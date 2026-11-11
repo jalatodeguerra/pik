@@ -163,9 +163,56 @@
     <string name="shortcut_add_expense_short">Add expense</string>
     <string name="shortcut_add_expense_long">Add an expense</string>
 
-    <!-- Placeholders -->
+    <!-- Plan -->
     <string name="plan_title">Plan</string>
-    <string name="plan_coming_soon">Budgets and recurring payments are coming in the next updates.</string>
+    <string name="plan_period_range">%1$s &#8211; %2$s</string>
+    <string name="previous_period">Previous period</string>
+    <string name="next_period">Next period</string>
+    <string name="safe_to_spend">Safe to spend</string>
+    <string name="safe_per_day">about %1$s per day for %2$d days</string>
+    <string name="safe_per_day_last">about %1$s for today, the last day</string>
+    <string name="safe_over_spent">Over-spent</string>
+    <string name="safe_over_spent_by">You have spent %1$s more than your income this period.</string>
+    <string name="safe_spent_of_planned">Spent %1$s of %2$s</string>
+    <string name="safe_no_income_hint">Add income, or set your expected monthly income in Settings, to see what is safe to spend.</string>
+    <string name="home_safe_to_spend_over">Over-spent by %1$s</string>
+    <string name="plan_totals_title">Totals</string>
+    <string name="plan_total_income">Money in</string>
+    <string name="plan_total_spent">Money out</string>
+    <string name="plan_total_left">Left over</string>
+    <string name="plan_overall_budget">Total budget</string>
+    <string name="plan_budgets">Budgets</string>
+    <string name="plan_spent_of_limit">%1$s of %2$s</string>
+    <string name="plan_left">%1$s left</string>
+    <string name="plan_over">%1$s over</string>
+    <string name="plan_not_budgeted">Not budgeted</string>
+    <string name="plan_set_budgets">Set budgets</string>
+    <string name="plan_edit_budgets">Edit budgets</string>
+    <string name="plan_empty_title">No budgets yet</string>
+    <string name="plan_empty_message">A budget is a limit for what you want to spend, overall or in a category, in each month. Pik shows how much is left as you spend.</string>
+    <string name="plan_empty_past">No budgets were set for this period.</string>
+
+    <!-- Budget editor -->
+    <string name="budgets_title">Set budgets</string>
+    <string name="budgets_applies_from">These limits apply from %1$s on. Earlier periods keep their old limits.</string>
+    <string name="budgets_hint">Leave a field empty for no budget.</string>
+    <string name="budgets_overall">Total budget</string>
+    <string name="budgets_overall_label">Limit for all spending</string>
+    <string name="budgets_categories">By category</string>
+    <string name="budgets_invalid">Check the amounts: some are not valid.</string>
+
+    <!-- Settings: plan -->
+    <string name="settings_plan">Plan</string>
+    <string name="settings_month_starts">Month starts on</string>
+    <string name="settings_month_starts_value">Day %1$d</string>
+    <string name="settings_month_starts_hint">If you are paid on the 27th, choose 27: your month then runs from the 27th to the 26th. Home and Plan use this month. Activity always shows calendar months.</string>
+    <string name="settings_expected_income">Expected monthly income</string>
+    <string name="settings_expected_income_not_set">Not set</string>
+    <string name="settings_expected_income_hint">Optional. Used to work out what is safe to spend before your income arrives. If you receive more, the real income is used.</string>
+    <string name="settings_expected_income_field">Expected income per month</string>
+    <string name="settings_expected_income_clear_hint">Leave empty to clear it.</string>
+
+    <!-- Placeholders -->
     <string name="debts_title">Debts</string>
     <string name="debts_coming_soon">Tracking and paying off debts is coming in the next updates.</string>
 </resources>

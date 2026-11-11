@@ -25,7 +25,8 @@ import com.pik.app.ui.screens.add.AddTransactionScreen
 import com.pik.app.ui.screens.firstrun.FirstRunScreen
 import com.pik.app.ui.screens.home.HomeScreen
 import com.pik.app.ui.screens.placeholder.DebtsScreen
-import com.pik.app.ui.screens.placeholder.PlanScreen
+import com.pik.app.ui.screens.plan.BudgetEditorScreen
+import com.pik.app.ui.screens.plan.PlanScreen
 import com.pik.app.ui.screens.settings.CategoriesScreen
 import com.pik.app.ui.screens.settings.SettingsScreen
 import com.pik.app.ui.theme.PikColors
@@ -90,6 +91,7 @@ private fun PikNavigation(startDestination: String, quickAddToken: Int) {
                     onSeeAll = { navController.navigateToTab(Routes.ACTIVITY) },
                     onTransactionClick = { id -> navController.navigate(Routes.edit(id)) },
                     onSettingsClick = { navController.navigate(Routes.SETTINGS) },
+                    onPlanClick = { navController.navigateToTab(Routes.PLAN) },
                 )
             }
             composable(Routes.ACTIVITY) {
@@ -106,7 +108,12 @@ private fun PikNavigation(startDestination: String, quickAddToken: Int) {
             composable(Routes.CATEGORIES) {
                 CategoriesScreen(onBack = { navController.popBackStack() })
             }
-            composable(Routes.PLAN) { PlanScreen() }
+            composable(Routes.PLAN) {
+                PlanScreen(onSetBudgets = { navController.navigate(Routes.BUDGETS) })
+            }
+            composable(Routes.BUDGETS) {
+                BudgetEditorScreen(onBack = { navController.popBackStack() })
+            }
             composable(Routes.DEBTS) { DebtsScreen() }
             composable(
                 route = Routes.ADD,

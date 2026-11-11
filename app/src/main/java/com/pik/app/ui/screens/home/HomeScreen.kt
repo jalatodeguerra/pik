@@ -38,6 +38,8 @@ import com.pik.app.R
 import com.pik.app.domain.AccountType
 import com.pik.app.domain.DateFormats
 import com.pik.app.domain.Money
+import com.pik.app.domain.SafeToSpend
+import java.time.YearMonth
 import com.pik.app.ui.components.IconCircle
 import com.pik.app.ui.components.PikCard
 import com.pik.app.ui.components.PikPrimaryButton
@@ -52,6 +54,7 @@ fun HomeScreen(
     onSeeAll: () -> Unit,
     onTransactionClick: (Long) -> Unit,
     onSettingsClick: () -> Unit,
+    onPlanClick: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -60,7 +63,7 @@ fun HomeScreen(
         viewModel.refreshMonth()
         onPauseOrDispose { }
     }
-    HomeContent(state, onAddClick, onSeeAll, onTransactionClick, onSettingsClick, viewModel::checkBalance)
+    HomeContent(state, onAddClick, onSeeAll, onTransactionClick, onSettingsClick, onPlanClick, viewModel::checkBalance)
 }
 
 @Composable
@@ -70,9 +73,15 @@ private fun HomeContent(
     onSeeAll: () -> Unit,
     onTransactionClick: (Long) -> Unit,
     onSettingsClick: () -> Unit,
+    onPlanClick: () -> Unit,
     onCheckBalance: (accountId: Long, realCents: Long, note: String) -> Unit,
 ) {
-    val monthName = DateFormats.monthName(state.month)
+    val periodLabel = state.period.label()
+    val headerLabel = if (state.period.startDay == 1) {
+        DateFormats.monthYear(YearMonth.from(state.period.start))
+    } else {
+        periodLabel
+    }
     var checking by remember { mutableStateOf<AccountWithBalance?>(null) }
     CheckBalanceHost(
         checking = checking,
@@ -100,7 +109,7 @@ private fun HomeContent(
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = DateFormats.monthYear(state.month),
+                        text = headerLabel,
                         style = MaterialTheme.typography.bodyLarge,
                         color = PikColors.TextSecondary,
                     )
@@ -166,16 +175,17 @@ private fun HomeContent(
                 }
             }
         }
+        item { SafeToSpendCard(state.safeToSpend, onClick = onPlanClick) }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MonthFlowCard(
-                    label = stringResource(R.string.home_money_in, monthName),
+                    label = stringResource(R.string.home_money_in, periodLabel),
                     amount = Money.format(state.monthInCents),
                     color = PikColors.Income,
                     modifier = Modifier.weight(1f),
                 )
                 MonthFlowCard(
-                    label = stringResource(R.string.home_money_out, monthName),
+                    label = stringResource(R.string.home_money_out, periodLabel),
                     amount = Money.format(state.monthOutCents),
                     color = PikColors.Expense,
                     modifier = Modifier.weight(1f),
@@ -254,6 +264,51 @@ private fun HomeContent(
                     }
                 }
             }
+        }
+    }
+}
+
+/** Same number as the Plan tab (SafeToSpendCalculator); tapping opens Plan. */
+@Composable
+private fun SafeToSpendCard(safe: SafeToSpend, onClick: () -> Unit) {
+    val accent = if (safe.isOverSpent) PikColors.Coral else PikColors.Lime
+    PikCard(modifier = Modifier.fillMaxWidth(), color = PikColors.Surface, onClick = onClick) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.safe_to_spend),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = PikColors.TextSecondary,
+                )
+                val detail = when {
+                    safe.plannedIncomeCents <= 0L && safe.spentCents <= 0L ->
+                        stringResource(R.string.safe_no_income_hint)
+                    safe.isOverSpent ->
+                        stringResource(R.string.home_safe_to_spend_over, Money.format(-safe.safeCents))
+                    safe.daysLeft <= 1 ->
+                        stringResource(R.string.safe_per_day_last, Money.format(safe.perDayCents))
+                    else ->
+                        stringResource(R.string.safe_per_day, Money.format(safe.perDayCents), safe.daysLeft)
+                }
+                Text(
+                    text = detail,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = PikColors.TextSecondary,
+                )
+            }
+            Text(
+                text = Money.format(safe.safeCents),
+                style = PikNumberStyles.Large,
+                color = accent,
+                maxLines = 1,
+                modifier = Modifier.padding(start = 12.dp),
+            )
         }
     }
 }

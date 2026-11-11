@@ -18,6 +18,9 @@ class CategoryRepository @Inject constructor(
     /** All categories of a kind (archived last) with their usage count. */
     fun observeWithUsage(kind: CategoryKind): Flow<List<CategoryWithUsage>> = dao.observeWithUsage(kind)
 
+    /** Every category of both kinds, archived included (names and icons for budgets). */
+    fun observeAll(): Flow<List<CategoryEntity>> = dao.observeAll()
+
     /** Idempotent: only seeds when there are no categories yet. */
     suspend fun ensureDefaultCategories() {
         if (dao.count() == 0) {

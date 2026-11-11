@@ -23,6 +23,9 @@ object DateFormats {
     fun shortDate(date: LocalDate): String =
         "${date.dayOfMonth} ${shortMonth(date.monthValue)} ${date.year}"
 
+    /** "27 Oct" */
+    fun dayMonth(date: LocalDate): String = "${date.dayOfMonth} ${shortMonth(date.monthValue)}"
+
     /** "Tue 10 Nov" */
     fun dayHeader(date: LocalDate): String =
         "${DAYS[date.dayOfWeek.value - 1]} ${date.dayOfMonth} ${shortMonth(date.monthValue)}"

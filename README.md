@@ -3,10 +3,11 @@
 Pik is an offline Android app for tracking your spending and paying off debt.
 Everything stays on your phone. There is no account, no server and no internet permission.
 
-Milestone 2 (this version) completes "track spending": first-run setup, accounts (cash and bank),
-adding / editing expenses, income and transfers, an activity list by month with search and
-filters, a home screen with balances, a Settings screen (accounts, categories, backup, about),
-balance checks and backup files. Plan and Debts are placeholders for the next updates.
+Milestone 2 completed "track spending": first-run setup, accounts (cash and bank), adding /
+editing expenses, income and transfers, an activity list by month with search and filters, a home
+screen with balances, a Settings screen (accounts, categories, backup, about), balance checks and
+backup files. Milestone 3 (this version) adds the Plan tab: payday month, budgets and "safe to
+spend". Debts is still a placeholder for the next update.
 
 ## Features
 
@@ -24,13 +25,68 @@ balance checks and backup files. Plan and Debts are placeholders for the next up
   can be deleted there (with confirmation) but are not editable in the Add screen.
 - **Activity search and filters**: search the selected month by note, category or account name
   (case-insensitive), filter by type (All / Expenses / Income / Transfers) and by account.
+- **Month starts on** (Settings -> Plan): day 1-28, default 1. If you are paid on the 27th, choose
+  27 and Home and Plan use periods from the 27th to the 26th (see "Payday month" below).
+- **Plan tab**: period header with previous / next arrows, "Safe to spend", the overall budget,
+  category budgets with progress bars, and a "Not budgeted" list of categories you spent in without a
+  limit. Past periods show totals and the budgets that applied then. "Set budgets" opens the budget
+  editor.
+- **Home** shows a "Safe to spend" card (tap to open Plan). "You have" (cash and bank) and
+  "You owe" (debts, later) stay separate.
 - **App shortcut**: long-press the Pik icon and choose "Add expense" to open the Add screen
   directly (only after first-run setup).
+
+## Payday month (period)
+
+`domain/Period.kt` is pure Kotlin. Given a date and the start day (1-28) it returns the period
+`[start, endInclusive]`: with start day 27, 11 Nov 2026 is in 27 Oct - 26 Nov and 27 Nov starts
+27 Nov - 26 Dec. The label is the month name ("November") when the start day is 1, otherwise
+"27 Oct - 26 Nov". The period key is the calendar month of its start ("2026-10" for 27 Oct - 26 Nov).
+Home's "Money in / out" totals, "Safe to spend" and the Plan tab use the current period.
+Activity always keeps calendar months. The setting is stored in DataStore (`monthStartDay`).
+Changing it moves where periods begin; budgets are keyed by the period key, so after a change a
+budget applies to the period that starts in the same calendar month.
+
+## Budgets
+
+Table `budgets` (schema version 2): `id`, `categoryId` (null = overall budget for total spending,
+foreign key to `categories` with ON DELETE CASCADE), `limitCents`, `startPeriod` ("yyyy-MM"),
+`createdAt`, with a unique index on `(categoryId, startPeriod)`.
+
+- The limit of a period is the row with the latest `startPeriod <= the period key`, per category.
+  Nothing is copied forward. Saving budgets in the editor writes rows for the current period key
+  only ("from this period on"); earlier periods keep their old limits. A value equal to the limit
+  already in force is not written.
+- `limitCents = 0` means "no budget from that period on" (this is how a budget is removed).
+- SQLite treats NULLs as distinct in a UNIQUE index, so uniqueness of the overall budget per
+  `startPeriod` is enforced in `BudgetRepository` (it looks the row up with `categoryId IS :id`
+  and updates instead of inserting a duplicate).
+- Progress bar colors: lime, amber from 80 percent of the limit, coral when over. Spending counts
+  EXPENSE transactions only (transfers, income and adjustments are excluded). The overall budget
+  compares against all expenses, including uncategorised ones.
+- The editor lists non-archived expense categories. A budget on a category that is archived later
+  stays in force and is still shown on Plan.
+
+## Safe to spend
+
+One definition, `domain/SafeToSpend.kt`, used by Home and Plan:
+
+```
+plannedIncome = max(expected monthly income setting, income received this period)
+safeToSpend   = plannedIncome - spentSoFar - billsStillDue - debtPaymentsDue
+perDay        = safeToSpend / days left in the period (today included); 0 when safeToSpend <= 0
+```
+
+`spentSoFar` is the EXPENSE total of the period (transfers and adjustments excluded). Bills still
+due and debt payments due are parameters that are 0 for now; later milestones fill them in. When
+`safeToSpend` is negative the screens show an over-spent state. "Expected monthly income" is
+optional (Settings -> Plan); when it is not set, planned income is the income received.
+Only the current period shows safe to spend.
 
 ## Stack
 
 - Kotlin 2.1.21, Jetpack Compose (Material 3, BOM 2025.05.01), dark theme only
-- Room 2.7.1 (schema exported to `app/schemas`), DataStore Preferences
+- Room 2.7.1 (schema exported to `app/schemas`, now at version 2), DataStore Preferences
 - Hilt for dependency injection, Navigation Compose
 - Fonts: Outfit (headings, numbers) and Inter (body), both under the SIL OFL (see `licenses/`)
 - minSdk 26, target/compile SDK 35, Gradle 8.14.3, AGP 8.10.1
@@ -59,15 +115,16 @@ Instrumented tests (`app/src/androidTest`, Room migration + balance query) run w
 app/src/main/java/com/pik/app/
   data/db       Room entities, DAOs, converters, PikDatabase
   data/repo     repositories (the only thing ViewModels talk to)
-  data/prefs    DataStore preferences (onboardingComplete, lastUsedAccountId, lastBackupEpochDay)
+  data/prefs    DataStore preferences (onboardingComplete, lastUsedAccountId, lastBackupEpochDay,
+                monthStartDay, expectedIncomeCents)
   domain        pure Kotlin, no Android: Money, AmountInput (keypad), BalanceCalculator, BalanceCheck,
-                ActivityFilter, DateFormats
+                ActivityFilter, DateFormats, Period, BudgetCalculator, SafeToSpendCalculator
   backup        backup file model and JSON (de)serialization with validation (org.json only)
   di            Hilt modules
   ui/theme      colors, fonts, category colors and icons
   ui/components shared composables
   ui/nav        routes, floating bottom bar, nav host
-  ui/screens    firstrun, add, activity, home, placeholder (Plan, Debts)
+  ui/screens    firstrun, add, activity, home, plan (Plan, budget editor), settings, placeholder (Debts)
 ```
 
 Layers: Compose screens -> ViewModels (one `StateFlow` UI state per screen) -> repositories -> Room.
@@ -84,6 +141,14 @@ Layers: Compose screens -> ViewModels (one `StateFlow` UI state per screen) -> r
   starting balance + income - expense - transfers out + transfers in + adjustments.
 - Debt payments will count as spending (later milestone); `debtId` is already reserved.
 
+## Database migrations
+
+The database holds real data, so `fallbackToDestructiveMigration` is never used. Version 2 adds the
+`budgets` table through `MIGRATION_1_2` (`data/db/Migrations.kt`), registered in `DatabaseModule`;
+existing tables are untouched. `MigrationTest` (instrumented) creates a version 1 database with an
+account, a category and a transaction, migrates it and checks that the rows survived and that
+`budgets` exists. Every future schema change needs a migration and a test like this.
+
 ## Backup
 
 ### Backup file (Settings -> Backup)
@@ -93,9 +158,15 @@ with the Android file picker (Storage Access Framework: no storage permission ne
 plain, readable file you can keep in your cloud storage or email to yourself:
 
 ```
-{ "formatVersion": 1, "appVersion": "0.2.0", "exportedAt": "2026-11-10T09:30:00Z",
-  "accounts": [...], "categories": [...], "transactions": [...] }
+{ "formatVersion": 2, "appVersion": "0.2.0", "exportedAt": "2026-11-10T09:30:00Z",
+  "accounts": [...], "categories": [...], "transactions": [...], "budgets": [...] }
 ```
+
+`formatVersion` 2 added `budgets`. Restore still accepts `formatVersion` 1 files (no budgets); the
+restored database then has no budgets. A budget must point to an existing category (or have a null
+category for the overall budget), have a non-negative limit, a `yyyy-MM` start period and be unique
+per category and start period. The two Plan settings (month start day, expected income) live in
+DataStore, not in the backup file; Android Auto Backup restores them with the app data.
 
 Every column of every row is included, money is integer cents and dates are ISO `yyyy-MM-dd`.
 "Restore from file" validates the file first (format version, ids, and that every transaction

@@ -20,6 +20,10 @@ class TransactionRepository @Inject constructor(
     fun observeMonth(month: YearMonth): Flow<List<TransactionRow>> =
         dao.observeBetween(month.atDay(1).toEpochDay(), month.atEndOfMonth().toEpochDay())
 
+    /** Transactions between two calendar days, both inclusive (a payday-month period). */
+    fun observeRange(from: LocalDate, toInclusive: LocalDate): Flow<List<TransactionRow>> =
+        dao.observeBetween(from.toEpochDay(), toInclusive.toEpochDay())
+
     fun observeRecent(limit: Int): Flow<List<TransactionRow>> = dao.observeRecent(limit)
 
     fun observeCount(): Flow<Int> = dao.observeCount()

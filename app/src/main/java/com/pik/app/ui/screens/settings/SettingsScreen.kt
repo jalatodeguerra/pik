@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -51,12 +53,14 @@ import com.pik.app.R
 import com.pik.app.domain.AccountType
 import com.pik.app.domain.DateFormats
 import com.pik.app.domain.Money
+import com.pik.app.domain.Period
 import com.pik.app.ui.components.CheckBalanceDialog
 import com.pik.app.ui.components.IconCircle
 import com.pik.app.ui.components.PikBackTopBar
 import com.pik.app.ui.components.PikCard
 import com.pik.app.ui.components.PikConfirmDialog
 import com.pik.app.ui.components.PikDialog
+import com.pik.app.ui.components.PikFilterChip
 import com.pik.app.ui.components.PikPrimaryButton
 import com.pik.app.ui.components.PikSecondaryButton
 import com.pik.app.ui.components.PikSegmented
@@ -103,6 +107,8 @@ fun SettingsScreen(
 
     var editor by remember { mutableStateOf<AccountEditorTarget?>(null) }
     var checking by remember { mutableStateOf<SettingsAccount?>(null) }
+    var editingMonthStart by remember { mutableStateOf(false) }
+    var editingIncome by remember { mutableStateOf(false) }
 
     val createLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json"),
@@ -159,6 +165,22 @@ fun SettingsScreen(
                             tint = PikColors.TextSecondary,
                         )
                     }
+                }
+
+                SectionTitle(stringResource(R.string.settings_plan))
+                PikCard(modifier = Modifier.fillMaxWidth()) {
+                    ValueRow(
+                        label = stringResource(R.string.settings_month_starts),
+                        value = stringResource(R.string.settings_month_starts_value, state.monthStartDay),
+                        onClick = { editingMonthStart = true },
+                    )
+                    HorizontalDivider(color = PikColors.Outline)
+                    ValueRow(
+                        label = stringResource(R.string.settings_expected_income),
+                        value = state.expectedIncomeCents?.let { Money.format(it) }
+                            ?: stringResource(R.string.settings_expected_income_not_set),
+                        onClick = { editingIncome = true },
+                    )
                 }
 
                 SectionTitle(stringResource(R.string.settings_backup))
@@ -262,6 +284,28 @@ fun SettingsScreen(
         )
     }
 
+    if (editingMonthStart) {
+        MonthStartDialog(
+            current = state.monthStartDay,
+            onDismiss = { editingMonthStart = false },
+            onSave = { day ->
+                viewModel.setMonthStartDay(day)
+                editingMonthStart = false
+            },
+        )
+    }
+
+    if (editingIncome) {
+        ExpectedIncomeDialog(
+            currentCents = state.expectedIncomeCents,
+            onDismiss = { editingIncome = false },
+            onSave = { cents ->
+                viewModel.setExpectedIncome(cents)
+                editingIncome = false
+            },
+        )
+    }
+
     checking?.let { item ->
         CheckBalanceDialog(
             accountName = item.account.name,
@@ -339,6 +383,101 @@ private fun AccountRow(item: SettingsAccount, onClick: () -> Unit, onCheckBalanc
                 tint = PikColors.Lime,
             )
         }
+    }
+}
+
+@Composable
+private fun ValueRow(label: String, value: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = PikColors.TextPrimary,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyLarge,
+            color = PikColors.TextSecondary,
+            maxLines = 1,
+        )
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = PikColors.TextSecondary,
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MonthStartDialog(current: Int, onDismiss: () -> Unit, onSave: (Int) -> Unit) {
+    var selected by remember { mutableStateOf(current) }
+    PikDialog(
+        title = stringResource(R.string.settings_month_starts),
+        onDismiss = onDismiss,
+        confirmLabel = stringResource(R.string.action_save),
+        onConfirm = { onSave(selected) },
+    ) {
+        Text(
+            text = stringResource(R.string.settings_month_starts_hint),
+            style = MaterialTheme.typography.bodyMedium,
+            color = PikColors.TextSecondary,
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            for (day in Period.MIN_START_DAY..Period.MAX_START_DAY) {
+                PikFilterChip(label = day.toString(), selected = day == selected, onClick = { selected = day })
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpectedIncomeDialog(currentCents: Long?, onDismiss: () -> Unit, onSave: (Long?) -> Unit) {
+    var text by remember { mutableStateOf(currentCents?.let { Money.formatPlain(it) }.orEmpty()) }
+    // Blank clears the setting; otherwise it must be a valid non-negative amount.
+    val parsed: Long? = if (text.isBlank()) null else Money.parse(text)
+    val valid = text.isBlank() || (parsed != null && parsed >= 0)
+    PikDialog(
+        title = stringResource(R.string.settings_expected_income),
+        onDismiss = onDismiss,
+        confirmLabel = stringResource(R.string.action_save),
+        confirmEnabled = valid,
+        onConfirm = { onSave(parsed) },
+    ) {
+        Text(
+            text = stringResource(R.string.settings_expected_income_hint),
+            style = MaterialTheme.typography.bodyMedium,
+            color = PikColors.TextSecondary,
+        )
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it.take(15) },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(stringResource(R.string.settings_expected_income_field)) },
+            placeholder = { Text("0,00") },
+            suffix = { Text(Money.CURRENCY_SYMBOL) },
+            isError = !valid,
+            singleLine = true,
+            shape = RoundedCornerShape(16.dp),
+            colors = pikTextFieldColors(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+        )
+        Text(
+            text = stringResource(R.string.settings_expected_income_clear_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = PikColors.TextSecondary,
+        )
     }
 }
 

@@ -13,7 +13,7 @@ import java.time.LocalDate
 class BackupJsonTest {
 
     private fun sample(): BackupFile = BackupFile(
-        formatVersion = 1,
+        formatVersion = 2,
         appVersion = "0.2.0",
         exportedAt = "2026-11-10T09:30:00Z",
         accounts = listOf(
@@ -38,6 +38,11 @@ class BackupJsonTest {
                 "Balance check", null, null, 14, 15,
             ),
         ),
+        budgets = listOf(
+            BackupBudget(1, null, 200_000, "2026-01", 20),
+            BackupBudget(2, 3, 30_000, "2026-01", 21),
+            BackupBudget(3, 3, 0, "2026-11", 22),
+        ),
     )
 
     private fun errorOf(text: String): BackupError {
@@ -59,19 +64,76 @@ class BackupJsonTest {
 
     @Test
     fun emptyCategoriesAndTransactionsRoundTrip() {
-        val original = sample().copy(categories = emptyList(), transactions = emptyList())
+        val original = sample().copy(categories = emptyList(), transactions = emptyList(), budgets = emptyList())
         assertEquals(original, BackupJson.parse(BackupJson.serialize(original)))
     }
 
     @Test
     fun datesAreIsoAndHeaderIsPresent() {
         val root = JSONObject(BackupJson.serialize(sample()))
-        assertEquals(1, root.getInt("formatVersion"))
+        assertEquals(2, root.getInt("formatVersion"))
         assertEquals("0.2.0", root.getString("appVersion"))
         assertEquals("2026-11-10T09:30:00Z", root.getString("exportedAt"))
         val tx = root.getJSONArray("transactions").getJSONObject(0)
         assertEquals("2026-11-03", tx.getString("date"))
         assertTrue(root.getJSONArray("transactions").getJSONObject(1).isNull("categoryId"))
+        val budgets = root.getJSONArray("budgets")
+        assertEquals(3, budgets.length())
+        assertTrue(budgets.getJSONObject(0).isNull("categoryId"))
+        assertEquals("2026-01", budgets.getJSONObject(1).getString("startPeriod"))
+    }
+
+    @Test
+    fun version1FileWithoutBudgetsStillRestores() {
+        val root = JSONObject(BackupJson.serialize(sample()))
+        root.put("formatVersion", 1)
+        root.remove("budgets")
+        val parsed = BackupJson.parse(root.toString())
+        assertEquals(1, parsed.formatVersion)
+        assertTrue(parsed.budgets.isEmpty())
+        assertEquals(sample().accounts, parsed.accounts)
+        assertEquals(sample().transactions, parsed.transactions)
+    }
+
+    @Test
+    fun version1ModelMustNotCarryBudgets() {
+        try {
+            BackupJson.validate(sample().copy(formatVersion = 1))
+            fail("expected a BackupFormatException")
+        } catch (e: BackupFormatException) {
+            assertEquals(BackupError.INVALID_DATA, e.error)
+        }
+    }
+
+    @Test
+    fun version2FileWithoutBudgetsArrayIsInvalid() {
+        val root = JSONObject(BackupJson.serialize(sample()))
+        root.remove("budgets")
+        assertEquals(BackupError.INVALID_DATA, errorOf(root.toString()))
+    }
+
+    @Test
+    fun rejectsBadBudgets() {
+        val s = sample()
+        val missingCategory = s.copy(budgets = listOf(BackupBudget(1, 99, 100, "2026-01", 0)))
+        assertEquals(BackupError.INVALID_DATA, errorOf(BackupJson.serialize(missingCategory)))
+
+        val negative = s.copy(budgets = listOf(BackupBudget(1, 3, -1, "2026-01", 0)))
+        assertEquals(BackupError.INVALID_DATA, errorOf(BackupJson.serialize(negative)))
+
+        val badPeriod = s.copy(budgets = listOf(BackupBudget(1, 3, 100, "2026-13", 0)))
+        assertEquals(BackupError.INVALID_DATA, errorOf(BackupJson.serialize(badPeriod)))
+        val badPeriod2 = s.copy(budgets = listOf(BackupBudget(1, 3, 100, "26-01", 0)))
+        assertEquals(BackupError.INVALID_DATA, errorOf(BackupJson.serialize(badPeriod2)))
+
+        val dupId = s.copy(budgets = listOf(BackupBudget(1, 3, 100, "2026-01", 0), BackupBudget(1, 3, 100, "2026-02", 0)))
+        assertEquals(BackupError.INVALID_DATA, errorOf(BackupJson.serialize(dupId)))
+
+        val dupKey = s.copy(budgets = listOf(BackupBudget(1, 3, 100, "2026-01", 0), BackupBudget(2, 3, 200, "2026-01", 0)))
+        assertEquals(BackupError.INVALID_DATA, errorOf(BackupJson.serialize(dupKey)))
+
+        val dupOverall = s.copy(budgets = listOf(BackupBudget(1, null, 100, "2026-01", 0), BackupBudget(2, null, 200, "2026-01", 0)))
+        assertEquals(BackupError.INVALID_DATA, errorOf(BackupJson.serialize(dupOverall)))
     }
 
     @Test
@@ -83,7 +145,7 @@ class BackupJsonTest {
 
     @Test
     fun rejectsUnsupportedVersion() {
-        val text = BackupJson.serialize(sample()).replace("\"formatVersion\": 1", "\"formatVersion\": 2")
+        val text = BackupJson.serialize(sample()).replace("\"formatVersion\": 2", "\"formatVersion\": 3")
         assertEquals(BackupError.UNSUPPORTED_VERSION, errorOf(text))
     }
 
