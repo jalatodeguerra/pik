@@ -185,7 +185,7 @@ object StatementParser {
     }
 
     private fun normaliseHeader(text: String): String =
-        text.removePrefix("﻿").trim().trim('"').trim().lowercase().replace(Regex("\\s+"), " ")
+        text.removePrefix("\uFEFF").trim().trim('"').trim().lowercase().replace(Regex("\\s+"), " ")
 
     private fun withOccurrences(rows: List<StatementRow>): List<StatementRow> {
         val seen = HashMap<String, Int>()

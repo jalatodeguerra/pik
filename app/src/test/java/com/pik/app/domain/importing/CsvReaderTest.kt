@@ -38,7 +38,7 @@ class CsvReaderTest {
     }
 
     @Test fun byteOrderMarkIsStripped() {
-        val rows = CsvReader.read("﻿Data;Importo\n01/11/2026;5,00\n")
+        val rows = CsvReader.read("\uFEFFData;Importo\n01/11/2026;5,00\n")
         assertEquals("Data", rows[0][0])
     }
 

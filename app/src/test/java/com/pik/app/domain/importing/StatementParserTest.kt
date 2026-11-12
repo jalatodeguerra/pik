@@ -185,7 +185,7 @@ class StatementParserTest {
     }
 
     @Test fun headerWithBomAndQuotes() {
-        val rows = parse("﻿\"Data\";\"Descrizione\";\"Importo\"\n\"01/11/2026\";\"X\";\"-1,00\"\n").rows
+        val rows = parse("\uFEFF\"Data\";\"Descrizione\";\"Importo\"\n\"01/11/2026\";\"X\";\"-1,00\"\n").rows
         assertEquals(100L, rows.single().amountCents)
     }
 

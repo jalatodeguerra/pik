@@ -9,7 +9,7 @@ object CsvReader {
     fun read(text: String): List<List<String>> = read(text, detectDelimiter(text))
 
     fun read(text: String, delimiter: Char): List<List<String>> {
-        val s = text.removePrefix("﻿")
+        val s = text.removePrefix("\uFEFF")
         val rows = ArrayList<List<String>>()
         var row = ArrayList<String>()
         val field = StringBuilder()
@@ -58,7 +58,7 @@ object CsvReader {
      * same number of them (outside quotes), times that number. Ties go to ';' then ','.
      */
     fun detectDelimiter(text: String): Char {
-        val lines = countOutsideQuotes(text.removePrefix("﻿"))
+        val lines = countOutsideQuotes(text.removePrefix("\uFEFF"))
         var best = ';'
         var bestScore = -1
         for ((index, candidate) in CANDIDATES.withIndex()) {
