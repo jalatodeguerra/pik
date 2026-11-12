@@ -25,6 +25,16 @@ jobs:
       - name: Build, unit test, lint
         run: ./gradlew --no-daemon assembleDebug testDebugUnitTest lintDebug
 
+      # Room writes the schema JSON during the build. Fail if it differs from the committed one,
+      # and print the generated file so it can be committed.
+      - name: Check Room schemas are committed
+        run: |
+          git add -N app/schemas
+          if ! git diff --quiet -- app/schemas; then
+            git diff -- app/schemas
+            exit 1
+          fi
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
