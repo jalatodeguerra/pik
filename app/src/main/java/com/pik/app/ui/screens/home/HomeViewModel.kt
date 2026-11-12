@@ -7,6 +7,7 @@ import com.pik.app.data.db.TransactionRow
 import com.pik.app.data.prefs.PikPreferences
 import com.pik.app.data.repo.AccountRepository
 import com.pik.app.data.repo.DebtRepository
+import com.pik.app.data.repo.ImportRepository
 import com.pik.app.data.repo.RecurringRepository
 import com.pik.app.data.repo.TransactionRepository
 import com.pik.app.domain.BalanceCalculator
@@ -57,6 +58,8 @@ data class HomeUiState(
     val recurringCount: Int = 0,
     /** Cumulative spending per day of the period up to today (the sparkline on the spending card). */
     val spendingLine: List<Long> = emptyList(),
+    /** Payments found by the automatic import that wait in the Inbox. */
+    val pendingImportCount: Int = 0,
 )
 
 /** Debt figures Home needs: the open debts and the extra-per-month setting. */
@@ -69,6 +72,7 @@ private data class DebtInfo(
 private data class PlanInfo(
     val debts: DebtInfo,
     val rules: List<com.pik.app.data.db.RecurringRuleEntity>,
+    val pendingImports: Int,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -78,6 +82,7 @@ class HomeViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     debtRepository: DebtRepository,
     private val recurringRepository: RecurringRepository,
+    importRepository: ImportRepository,
     private val prefs: PikPreferences,
 ) : ViewModel() {
 
@@ -100,8 +105,12 @@ class HomeViewModel @Inject constructor(
         )
     }
 
-    private val planInfo = combine(debtInfo, recurringRepository.observeRules()) { debts, rules ->
-        PlanInfo(debts, rules)
+    private val planInfo = combine(
+        debtInfo,
+        recurringRepository.observeRules(),
+        importRepository.observePendingCount(),
+    ) { debts, rules, pendingImports ->
+        PlanInfo(debts, rules, pendingImports)
     }
 
     /** Confirms the next pending occurrence of a recurring rule (a transaction is created). */
@@ -164,6 +173,7 @@ class HomeViewModel @Inject constructor(
                     due = buildDueItems(plan.rules, settings.today),
                     today = settings.today,
                     recurringCount = plan.rules.size,
+                    pendingImportCount = plan.pendingImports,
                     spendingLine = InsightsCalculator.cumulativeSpending(
                         periodRows.map { InsightTx(it.date, it.type, it.amountCents, it.categoryId, it.debtId) },
                         period,

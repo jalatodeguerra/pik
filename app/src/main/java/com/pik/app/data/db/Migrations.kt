@@ -115,3 +115,47 @@ val MIGRATION_4_5: Migration = object : Migration(4, 5) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_recurring_rules_debtId` ON `recurring_rules` (`debtId`)")
     }
 }
+
+/**
+ * Version 5 -> 6: adds the import_items table (the automatic import inbox) and the merchant_rules table.
+ * Existing tables are untouched. The SQL must match what Room generates for [ImportItemEntity] and
+ * [MerchantRuleEntity] (see app/schemas/.../6.json): the item's account is SET NULL, the rule's category
+ * is CASCADE, sourceKey has a unique index.
+ */
+val MIGRATION_5_6: Migration = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `import_items` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`source` TEXT NOT NULL, " +
+                "`sourceKey` TEXT NOT NULL, " +
+                "`accountId` INTEGER, " +
+                "`direction` TEXT NOT NULL, " +
+                "`amountCents` INTEGER NOT NULL, " +
+                "`merchant` TEXT NOT NULL, " +
+                "`date` INTEGER NOT NULL, " +
+                "`rawText` TEXT NOT NULL, " +
+                "`status` TEXT NOT NULL, " +
+                "`suggestion` TEXT NOT NULL, " +
+                "`transferAccountId` INTEGER, " +
+                "`suggestedCategoryId` INTEGER, " +
+                "`transactionId` INTEGER, " +
+                "`restored` INTEGER NOT NULL, " +
+                "`createdAt` INTEGER NOT NULL, " +
+                "FOREIGN KEY(`accountId`) REFERENCES `accounts`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        )
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_import_items_sourceKey` ON `import_items` (`sourceKey`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_import_items_status` ON `import_items` (`status`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_import_items_date` ON `import_items` (`date`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_import_items_accountId` ON `import_items` (`accountId`)")
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `merchant_rules` (" +
+                "`merchantKey` TEXT NOT NULL, " +
+                "`categoryId` INTEGER NOT NULL, " +
+                "`updatedAt` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`merchantKey`), " +
+                "FOREIGN KEY(`categoryId`) REFERENCES `categories`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_merchant_rules_categoryId` ON `merchant_rules` (`categoryId`)")
+    }
+}

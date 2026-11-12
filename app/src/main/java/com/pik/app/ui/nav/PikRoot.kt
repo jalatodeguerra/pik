@@ -24,6 +24,7 @@ import com.pik.app.ui.screens.activity.ActivityScreen
 import com.pik.app.ui.screens.add.AddTransactionScreen
 import com.pik.app.ui.screens.firstrun.FirstRunScreen
 import com.pik.app.ui.screens.home.HomeScreen
+import com.pik.app.ui.screens.importing.InboxScreen
 import com.pik.app.ui.screens.debts.DebtDetailScreen
 import com.pik.app.ui.screens.debts.DebtEditScreen
 import com.pik.app.ui.screens.debts.DebtsScreen
@@ -107,6 +108,13 @@ private fun PikNavigation(startDestination: String, quickAddToken: Int, openRecu
                     onDebtsClick = { navController.navigateToTab(Routes.DEBTS) },
                     onRecurringClick = { navController.navigate(Routes.RECURRING) },
                     onInsightsClick = { navController.navigate(Routes.INSIGHTS) },
+                    onInboxClick = { navController.navigate(Routes.INBOX) },
+                )
+            }
+            composable(Routes.INBOX) {
+                InboxScreen(
+                    onBack = { navController.popBackStack() },
+                    onEdit = { id -> navController.navigate(Routes.importEdit(id)) },
                 )
             }
             composable(Routes.INSIGHTS) {
@@ -126,6 +134,7 @@ private fun PikNavigation(startDestination: String, quickAddToken: Int, openRecu
                     onBack = { navController.popBackStack() },
                     onOpenCategories = { navController.navigate(Routes.CATEGORIES) },
                     onOpenLicences = { navController.navigate(Routes.LICENCES) },
+                    onOpenInbox = { navController.navigate(Routes.INBOX) },
                 )
             }
             composable(Routes.LICENCES) {
@@ -196,6 +205,10 @@ private fun PikNavigation(startDestination: String, quickAddToken: Int, openRecu
                 route = Routes.ADD,
                 arguments = listOf(
                     navArgument(Routes.ARG_TRANSACTION_ID) {
+                        type = NavType.LongType
+                        defaultValue = -1L
+                    },
+                    navArgument(Routes.ARG_IMPORT_ITEM_ID) {
                         type = NavType.LongType
                         defaultValue = -1L
                     },

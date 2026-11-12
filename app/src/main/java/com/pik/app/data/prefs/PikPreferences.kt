@@ -8,9 +8,12 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.pik.app.domain.PayoffOrder
 import com.pik.app.domain.Period
+import com.pik.app.domain.importing.ImportAppConfig
+import com.pik.app.domain.importing.ImportSource
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -100,6 +103,36 @@ class PikPreferences @Inject constructor(
         store.edit { it[KEY_LOCK_ENABLED] = value }
     }
 
+    /** The payment apps whose notifications Pik reads, each with the Pik account its payments belong to. */
+    val importApps: Flow<List<ImportAppConfig>> = store.data.map { prefs ->
+        (prefs[KEY_IMPORT_APPS] ?: emptySet()).mapNotNull { ImportAppConfig.decode(it) }.sortedBy { it.packageName }
+    }
+
+    /** Turns reading an app on (or changes its source / account). */
+    suspend fun setImportApp(packageName: String, source: ImportSource, accountId: Long?) {
+        store.edit { prefs ->
+            val current = (prefs[KEY_IMPORT_APPS] ?: emptySet())
+                .filterNot { ImportAppConfig.decode(it)?.packageName == packageName }
+            prefs[KEY_IMPORT_APPS] = (current + ImportAppConfig(packageName, source, accountId).encode()).toSet()
+        }
+    }
+
+    /** Turns reading an app off. */
+    suspend fun removeImportApp(packageName: String) {
+        store.edit { prefs ->
+            val current = (prefs[KEY_IMPORT_APPS] ?: emptySet())
+                .filterNot { ImportAppConfig.decode(it)?.packageName == packageName }
+            if (current.isEmpty()) prefs.remove(KEY_IMPORT_APPS) else prefs[KEY_IMPORT_APPS] = current.toSet()
+        }
+    }
+
+    /** Replaces all import app settings at once (backup restore). */
+    suspend fun restoreImportApps(apps: List<ImportAppConfig>) {
+        store.edit { prefs ->
+            if (apps.isEmpty()) prefs.remove(KEY_IMPORT_APPS) else prefs[KEY_IMPORT_APPS] = apps.map { it.encode() }.toSet()
+        }
+    }
+
     suspend fun setOnboardingComplete(value: Boolean) {
         store.edit { it[KEY_ONBOARDING_COMPLETE] = value }
     }
@@ -118,6 +151,7 @@ class PikPreferences @Inject constructor(
         val KEY_PAYOFF_ORDER = stringPreferencesKey("payoffOrder")
         val KEY_LOCK_ENABLED = booleanPreferencesKey("lockEnabled")
         val KEY_REMINDER_HOUR = intPreferencesKey("reminderHour")
+        val KEY_IMPORT_APPS = stringSetPreferencesKey("importApps")
         const val DEFAULT_REMINDER_HOUR = 9
     }
 }

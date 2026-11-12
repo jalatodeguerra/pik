@@ -9,6 +9,7 @@ import com.pik.app.data.db.MIGRATION_1_2
 import com.pik.app.data.db.MIGRATION_2_3
 import com.pik.app.data.db.MIGRATION_3_4
 import com.pik.app.data.db.MIGRATION_4_5
+import com.pik.app.data.db.MIGRATION_5_6
 import com.pik.app.data.db.PikDatabase
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -38,7 +39,7 @@ class MigrationTest {
             ApplicationProvider.getApplicationContext(),
             PikDatabase::class.java,
             TEST_DB,
-        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build()
         // Opening validates the schema against the current entities.
         db.openHelper.writableDatabase
         db.close()
@@ -417,6 +418,108 @@ class MigrationTest {
             blocked = true
         }
         assertTrue("an account with a recurring rule must not be deletable", blocked)
+    }
+
+    @Test
+    fun migrate5To6KeepsEverythingAndAddsImportTables() {
+        helper.createDatabase(TEST_DB, 5).apply {
+            insertBaseRows(this)
+            insertVersion3Debt(this)
+            execSQL(
+                "INSERT INTO recurring_rules (id, name, kind, transactionType, amountCents, accountId, categoryId, " +
+                    "debtId, note, startDate, intervalCount, intervalUnit, dayOfMonth, endDate, maxOccurrences, " +
+                    "occurrencesDone, nextDueDate, remindDayBefore, active, createdAt) " +
+                    "VALUES (1, 'Rent', 'BILL', 'EXPENSE', 65000, 1, 7, NULL, '', 20400, 1, 'MONTH', 5, NULL, NULL, " +
+                    "0, 20400, 1, 1, 9)",
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(TEST_DB, 6, true, MIGRATION_5_6)
+
+        assertBaseRowsSurvived(db)
+        db.query("SELECT name, amountCents FROM recurring_rules WHERE id = 1").use {
+            assertTrue(it.moveToFirst())
+            assertEquals("Rent", it.getString(0))
+            assertEquals(65000L, it.getLong(1))
+        }
+        assertImportTablesWork(db)
+        db.close()
+    }
+
+    @Test
+    fun migrate1To6KeepsDataThroughEveryMigration() {
+        helper.createDatabase(TEST_DB, 1).apply {
+            insertBaseRows(this)
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(
+            TEST_DB, 6, true, MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
+        )
+
+        assertBaseRowsSurvived(db)
+        assertNewDebtColumnsWork(db)
+        assertRecurringTableWorks(db)
+        assertImportTablesWork(db)
+        db.close()
+    }
+
+    /**
+     * import_items and merchant_rules exist, are empty and accept rows; sourceKey is unique; deleting an
+     * account clears the item's account (SET NULL); deleting a category deletes its merchant rules (CASCADE).
+     * Needs account 1 and category 7 (insertBaseRows); it inserts its own spare account and category.
+     */
+    private fun assertImportTablesWork(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        for (table in listOf("import_items", "merchant_rules")) {
+            db.query("SELECT COUNT(*) FROM $table").use {
+                assertTrue(it.moveToFirst())
+                assertEquals(0, it.getInt(0))
+            }
+        }
+        db.execSQL("PRAGMA foreign_keys = ON")
+        db.execSQL("INSERT INTO accounts (id, name, type, startingBalanceCents, archived, sortOrder, createdAt) VALUES (20, 'Wallet', 'BANK', 0, 0, 7, 1)")
+        db.execSQL("INSERT INTO categories (id, name, kind, colorKey, iconKey, archived, sortOrder) VALUES (20, 'Tmp', 'EXPENSE', 'mint', 'cart', 0, 9)")
+        db.execSQL(
+            "INSERT INTO import_items (id, source, sourceKey, accountId, direction, amountCents, merchant, date, " +
+                "rawText, status, suggestion, transferAccountId, suggestedCategoryId, transactionId, restored, createdAt) " +
+                "VALUES (1, 'NEXI', 'key-1', 20, 'OUT', 1250, 'CONAD', 20400, 'Pagamento di 12,50 EUR presso CONAD', " +
+                "'PENDING', 'EXPENSE', NULL, 7, NULL, 0, 5)",
+        )
+        db.query("SELECT merchant, amountCents, restored, suggestedCategoryId FROM import_items WHERE id = 1").use {
+            assertTrue(it.moveToFirst())
+            assertEquals("CONAD", it.getString(0))
+            assertEquals(1250L, it.getLong(1))
+            assertEquals(0, it.getInt(2))
+            assertEquals(7L, it.getLong(3))
+        }
+        // the same sourceKey cannot be stored twice
+        var duplicateBlocked = false
+        try {
+            db.execSQL(
+                "INSERT INTO import_items (source, sourceKey, accountId, direction, amountCents, merchant, date, " +
+                    "rawText, status, suggestion, restored, createdAt) " +
+                    "VALUES ('NEXI', 'key-1', NULL, 'OUT', 1, 'X', 20400, '', 'PENDING', 'EXPENSE', 0, 5)",
+            )
+        } catch (e: android.database.sqlite.SQLiteConstraintException) {
+            duplicateBlocked = true
+        }
+        assertTrue("sourceKey must be unique", duplicateBlocked)
+        // deleting the account keeps the item, without an account
+        db.execSQL("DELETE FROM accounts WHERE id = 20")
+        db.query("SELECT accountId FROM import_items WHERE id = 1").use {
+            assertTrue(it.moveToFirst())
+            assertTrue(it.isNull(0))
+        }
+        // a merchant rule is deleted together with its category
+        db.execSQL("INSERT INTO merchant_rules (merchantKey, categoryId, updatedAt) VALUES ('CONAD', 20, 6)")
+        db.execSQL("INSERT INTO merchant_rules (merchantKey, categoryId, updatedAt) VALUES ('COOP', 7, 6)")
+        db.execSQL("DELETE FROM categories WHERE id = 20")
+        db.query("SELECT merchantKey FROM merchant_rules").use {
+            assertEquals(1, it.count)
+            assertTrue(it.moveToFirst())
+            assertEquals("COOP", it.getString(0))
+        }
     }
 
     private companion object {

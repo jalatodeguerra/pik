@@ -23,6 +23,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.pik.app.ui.screens.insights.Sparkline
@@ -69,6 +70,7 @@ fun HomeScreen(
     onDebtsClick: () -> Unit,
     onRecurringClick: () -> Unit,
     onInsightsClick: () -> Unit,
+    onInboxClick: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -79,7 +81,8 @@ fun HomeScreen(
     }
     HomeContent(
         state, onAddClick, onSeeAll, onTransactionClick, onSettingsClick, onPlanClick, onDebtsClick,
-        onRecurringClick, onInsightsClick, viewModel::checkBalance, viewModel::confirmDue, viewModel::skipDue,
+        onRecurringClick, onInsightsClick, onInboxClick, viewModel::checkBalance, viewModel::confirmDue,
+        viewModel::skipDue,
     )
 }
 
@@ -94,6 +97,7 @@ private fun HomeContent(
     onDebtsClick: () -> Unit,
     onRecurringClick: () -> Unit,
     onInsightsClick: () -> Unit,
+    onInboxClick: () -> Unit,
     onCheckBalance: (accountId: Long, realCents: Long, note: String) -> Unit,
     onConfirmDue: (ruleId: Long, amountCents: Long, accountId: Long, date: LocalDate) -> Unit,
     onSkipDue: (ruleId: Long) -> Unit,
@@ -160,6 +164,9 @@ private fun HomeContent(
                     }
                 }
             }
+        }
+        if (state.pendingImportCount > 0) {
+            item { InboxCard(count = state.pendingImportCount, onClick = onInboxClick) }
         }
         item {
             PikCard(modifier = Modifier.fillMaxWidth()) {
@@ -326,6 +333,39 @@ private fun HomeContent(
                     }
                 }
             }
+        }
+    }
+}
+
+/** "N to review": payments the automatic import found. Tap opens the Inbox. */
+@Composable
+private fun InboxCard(count: Int, onClick: () -> Unit) {
+    PikCard(modifier = Modifier.fillMaxWidth(), color = PikColors.Surface, onClick = onClick) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            IconCircle(Icons.Filled.Inbox, PikColors.Lime, null)
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.home_inbox_title, count),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = PikColors.TextPrimary,
+                )
+                Text(
+                    text = stringResource(R.string.home_inbox_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = PikColors.TextSecondary,
+                )
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = PikColors.TextSecondary,
+            )
         }
     }
 }

@@ -6,6 +6,8 @@ import com.pik.app.backup.BackupBudget
 import com.pik.app.backup.BackupCategory
 import com.pik.app.backup.BackupDebt
 import com.pik.app.backup.BackupDebtEntry
+import com.pik.app.backup.BackupImportApp
+import com.pik.app.backup.BackupMerchantRule
 import com.pik.app.backup.BackupSettings
 import com.pik.app.backup.BackupFile
 import com.pik.app.backup.BackupJson
@@ -20,12 +22,16 @@ import com.pik.app.data.db.CategoryEntity
 import com.pik.app.data.db.DebtDao
 import com.pik.app.data.db.DebtEntity
 import com.pik.app.data.db.DebtEntryEntity
+import com.pik.app.data.db.ImportDao
+import com.pik.app.data.db.MerchantRuleDao
+import com.pik.app.data.db.MerchantRuleEntity
 import com.pik.app.data.db.PikDatabase
 import com.pik.app.data.db.RecurringDao
 import com.pik.app.data.db.RecurringRuleEntity
 import com.pik.app.data.db.TransactionDao
 import com.pik.app.data.db.TransactionEntity
 import com.pik.app.data.prefs.PikPreferences
+import com.pik.app.domain.importing.ImportAppConfig
 import kotlinx.coroutines.flow.first
 import java.time.Instant
 import javax.inject.Inject
@@ -41,6 +47,8 @@ class BackupRepository @Inject constructor(
     private val budgetDao: BudgetDao,
     private val debtDao: DebtDao,
     private val recurringDao: RecurringDao,
+    private val importDao: ImportDao,
+    private val merchantRuleDao: MerchantRuleDao,
     private val prefs: PikPreferences,
 ) {
     /** Consistent snapshot of every row, serialized as the backup JSON text. */
@@ -51,6 +59,7 @@ class BackupRepository @Inject constructor(
             extraPerMonthCents = prefs.extraPerMonthCents.first(),
             payoffOrder = prefs.payoffOrder.first(),
         )
+        val importApps = prefs.importApps.first().map { BackupImportApp(it.packageName, it.source, it.accountId) }
         val file = db.withTransaction {
             BackupFile(
                 formatVersion = BackupJson.FORMAT_VERSION,
@@ -63,6 +72,8 @@ class BackupRepository @Inject constructor(
                 debts = debtDao.getAll().map { it.toBackup() },
                 debtEntries = debtDao.getAllEntries().map { it.toBackup() },
                 recurringRules = recurringDao.getAll().map { it.toBackup() },
+                merchantRules = merchantRuleDao.getAll().map { it.toBackup() },
+                importApps = importApps,
                 settings = settings,
             )
         }
@@ -77,6 +88,9 @@ class BackupRepository @Inject constructor(
     suspend fun replaceAll(file: BackupFile) {
         BackupJson.validate(file)
         db.withTransaction {
+            // Inbox items are not backed up and point to accounts and transactions that are about to go.
+            importDao.deleteAll()
+            merchantRuleDao.deleteAll()
             // Rules first: they point to accounts (RESTRICT), categories and debts.
             recurringDao.deleteAll()
             transactionDao.deleteAll()
@@ -92,7 +106,10 @@ class BackupRepository @Inject constructor(
             transactionDao.insertAll(file.transactions.map { it.toEntity() })
             budgetDao.insertAll(file.budgets.map { it.toEntity() })
             recurringDao.insertAll(file.recurringRules.map { it.toEntity() })
+            merchantRuleDao.insertAll(file.merchantRules.map { it.toEntity() })
         }
+        // Account ids are replaced by the restore, so the old app settings are always replaced (older files: none).
+        prefs.restoreImportApps(file.importApps.map { ImportAppConfig(it.packageName, it.source, it.accountId) })
         file.settings?.let {
             prefs.restorePlanSettings(it.monthStartDay, it.expectedIncomeCents, it.extraPerMonthCents, it.payoffOrder)
         }
@@ -109,6 +126,10 @@ private fun TransactionEntity.toBackup() = BackupTransaction(
     id, type, amountCents, date, accountId, toAccountId, categoryId, note, debtId, recurringId,
     createdAt, updatedAt,
 )
+
+private fun MerchantRuleEntity.toBackup() = BackupMerchantRule(merchantKey, categoryId, updatedAt)
+
+private fun BackupMerchantRule.toEntity() = MerchantRuleEntity(merchantKey, categoryId, updatedAt)
 
 private fun BudgetEntity.toBackup() = BackupBudget(id, categoryId, limitCents, startPeriod, createdAt)
 

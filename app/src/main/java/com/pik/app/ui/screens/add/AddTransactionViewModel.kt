@@ -10,10 +10,14 @@ import com.pik.app.data.prefs.PikPreferences
 import com.pik.app.data.repo.AccountRepository
 import com.pik.app.data.repo.CategoryRepository
 import com.pik.app.data.repo.DebtRepository
+import com.pik.app.data.repo.ImportRepository
 import com.pik.app.data.repo.TransactionRepository
 import com.pik.app.domain.AmountInput
 import com.pik.app.domain.CategoryKind
 import com.pik.app.domain.TransactionType
+import com.pik.app.domain.importing.ImportDirection
+import com.pik.app.domain.importing.ImportStatus
+import com.pik.app.domain.importing.ImportSuggestion
 import com.pik.app.ui.nav.Routes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -32,6 +36,8 @@ import javax.inject.Inject
 data class AddUiState(
     val isLoading: Boolean = true,
     val isEditing: Boolean = false,
+    /** Filled in from an Inbox item (automatic import): saving it marks the item as added. */
+    val fromImport: Boolean = false,
     /** EXPENSE, INCOME or TRANSFER. */
     val type: TransactionType = TransactionType.EXPENSE,
     val amount: AmountInput = AmountInput(),
@@ -70,11 +76,15 @@ class AddTransactionViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
     private val categoryRepository: CategoryRepository,
     private val debtRepository: DebtRepository,
+    private val importRepository: ImportRepository,
     private val prefs: PikPreferences,
 ) : ViewModel() {
 
     private val editingId: Long? =
         savedStateHandle.get<Long>(Routes.ARG_TRANSACTION_ID)?.takeIf { it > 0 }
+
+    private val importItemId: Long? =
+        savedStateHandle.get<Long>(Routes.ARG_IMPORT_ITEM_ID)?.takeIf { it > 0 }
 
     private var original: TransactionEntity? = null
 
@@ -92,6 +102,12 @@ class AddTransactionViewModel @Inject constructor(
                 return@launch
             }
             val debtName = existing?.debtId?.let { debtRepository.get(it)?.name }
+            val importItem = importItemId?.let { importRepository.get(it) }
+            if (importItemId != null && (importItem == null || importItem.status != ImportStatus.PENDING)) {
+                // The inbox item is gone or was handled in the meantime.
+                _state.update { it.copy(isLoading = false, finished = true) }
+                return@launch
+            }
             _state.update { s ->
                 if (existing != null) {
                     s.copy(
@@ -105,6 +121,32 @@ class AddTransactionViewModel @Inject constructor(
                         categoryId = existing.categoryId,
                         date = existing.date,
                         note = existing.note,
+                    )
+                } else if (importItem != null) {
+                    val transfer = importItem.transferAccountId
+                    when {
+                        importItem.suggestion == ImportSuggestion.TRANSFER_OUT && transfer != null -> s.copy(
+                            isLoading = false, fromImport = true, type = TransactionType.TRANSFER,
+                            accountId = importItem.accountId ?: lastUsed, toAccountId = transfer,
+                        )
+                        importItem.suggestion == ImportSuggestion.TRANSFER_IN && transfer != null -> s.copy(
+                            isLoading = false, fromImport = true, type = TransactionType.TRANSFER,
+                            accountId = transfer, toAccountId = importItem.accountId,
+                        )
+                        else -> s.copy(
+                            isLoading = false, fromImport = true,
+                            type = if (importItem.direction == ImportDirection.OUT) {
+                                TransactionType.EXPENSE
+                            } else {
+                                TransactionType.INCOME
+                            },
+                            accountId = importItem.accountId ?: lastUsed,
+                            categoryId = importItem.suggestedCategoryId,
+                        )
+                    }.copy(
+                        amount = AmountInput.fromCents(importItem.amountCents),
+                        date = importItem.date,
+                        note = importItem.merchant.take(MAX_NOTE_LENGTH),
                     )
                 } else {
                     s.copy(isLoading = false, accountId = lastUsed)
@@ -125,6 +167,10 @@ class AddTransactionViewModel @Inject constructor(
                     .collect { list -> _state.update { it.copy(categories = list) } }
             }
         }
+    }
+
+    private companion object {
+        const val MAX_NOTE_LENGTH = 120
     }
 
     private fun kindFor(type: TransactionType): CategoryKind =
@@ -220,9 +266,16 @@ class AddTransactionViewModel @Inject constructor(
                 createdAt = old?.createdAt ?: 0L,
                 updatedAt = old?.updatedAt ?: 0L,
             )
-            transactions.save(entity)
+            val savedId = transactions.save(entity)
             prefs.setLastUsedAccountId(accountId)
-            if (addAnother && old == null) {
+            if (importItemId != null) {
+                importRepository.markAdded(
+                    importItemId,
+                    savedId,
+                    if (entity.type == TransactionType.TRANSFER) null else entity.categoryId,
+                )
+            }
+            if (addAnother && old == null && importItemId == null) {
                 _state.update {
                     it.copy(
                         saving = false,

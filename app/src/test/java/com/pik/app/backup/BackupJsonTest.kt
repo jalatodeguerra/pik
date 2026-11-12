@@ -8,6 +8,7 @@ import com.pik.app.domain.PayoffOrder
 import com.pik.app.domain.RecurrenceUnit
 import com.pik.app.domain.RecurringKind
 import com.pik.app.domain.TransactionType
+import com.pik.app.domain.importing.ImportSource
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -301,7 +302,7 @@ class BackupJsonTest {
 
     @Test
     fun rejectsUnsupportedVersion() {
-        val text = BackupJson.serialize(sample()).replace("\"formatVersion\": 4", "\"formatVersion\": 6")
+        val text = BackupJson.serialize(sample()).replace("\"formatVersion\": 4", "\"formatVersion\": 7")
         assertEquals(BackupError.UNSUPPORTED_VERSION, errorOf(text))
     }
 
@@ -564,7 +565,131 @@ class BackupJsonTest {
     @Test
     fun unsupportedFutureVersionStillRejected() {
         val root = JSONObject(BackupJson.serialize(sample5()))
-        root.put("formatVersion", 6)
+        root.put("formatVersion", 7)
         assertEquals(BackupError.UNSUPPORTED_VERSION, errorOf(root.toString()))
+    }
+
+    // ---- format version 6: merchant rules and import apps ----
+
+    private fun sample6(): BackupFile = sample5().copy(
+        formatVersion = 6,
+        merchantRules = listOf(
+            BackupMerchantRule("CONAD SUPERSTORE", 3, 1_700_000_000_000),
+            BackupMerchantRule("CAFF\u00C8 CENTRALE \"X\"", 9, 1_700_000_000_001),
+        ),
+        importApps = listOf(
+            BackupImportApp("com.revolut.revolut", ImportSource.REVOLUT, 5),
+            BackupImportApp("it.bcc.relax", ImportSource.RELAX, 1),
+            BackupImportApp("com.other.app", ImportSource.OTHER_APP, null),
+        ),
+    )
+
+    @Test
+    fun currentFormatVersionIsSix() {
+        assertEquals(6, BackupJson.FORMAT_VERSION)
+    }
+
+    @Test
+    fun version6RoundTripKeepsRulesAndApps() {
+        val original = sample6()
+        val parsed = BackupJson.parse(BackupJson.serialize(original))
+        assertEquals(original, parsed)
+        assertEquals(2, parsed.merchantRules.size)
+        assertEquals(3, parsed.importApps.size)
+    }
+
+    @Test
+    fun version6FieldsAreWritten() {
+        val root = JSONObject(BackupJson.serialize(sample6()))
+        assertEquals(6, root.getInt("formatVersion"))
+        val rules = root.getJSONArray("merchantRules")
+        assertEquals("CONAD SUPERSTORE", rules.getJSONObject(0).getString("merchantKey"))
+        assertEquals(3L, rules.getJSONObject(0).getLong("categoryId"))
+        val apps = root.getJSONArray("importApps")
+        assertEquals("REVOLUT", apps.getJSONObject(0).getString("source"))
+        assertEquals(5L, apps.getJSONObject(0).getLong("accountId"))
+        assertTrue(apps.getJSONObject(2).isNull("accountId"))
+        // pending inbox items are not part of the backup
+        assertTrue(!root.has("importItems"))
+    }
+
+    @Test
+    fun version6WithoutRulesAndAppsRoundTrips() {
+        val empty = sample6().copy(merchantRules = emptyList(), importApps = emptyList())
+        assertEquals(empty, BackupJson.parse(BackupJson.serialize(empty)))
+    }
+
+    @Test
+    fun version5FileStillRestoresWithoutRulesAndApps() {
+        val text = BackupJson.serialize(sample5())
+        assertTrue(!JSONObject(text).has("merchantRules"))
+        assertTrue(!JSONObject(text).has("importApps"))
+        val parsed = BackupJson.parse(text)
+        assertEquals(5, parsed.formatVersion)
+        assertTrue(parsed.merchantRules.isEmpty())
+        assertTrue(parsed.importApps.isEmpty())
+    }
+
+    @Test
+    fun allOlderVersionsStillParse() {
+        for (version in 1..5) {
+            val file = when (version) {
+                5 -> sample5()
+                4 -> sample()
+                else -> sample().copy(
+                    formatVersion = version,
+                    debts = if (version >= 3) sample().debts.map { it.copy(taegBasisPoints = null, type = DebtType.OTHER, totalInstallments = null, installmentsPaidBefore = null) } else emptyList(),
+                    debtEntries = if (version >= 3) sample().debtEntries else emptyList(),
+                    budgets = if (version >= 2) sample().budgets else emptyList(),
+                    settings = if (version >= 3) sample().settings else null,
+                    transactions = sample().transactions.map { it.copy(debtId = null) },
+                )
+            }
+            assertEquals(version, BackupJson.parse(BackupJson.serialize(file)).formatVersion)
+        }
+    }
+
+    @Test
+    fun oldModelsMustNotCarryRulesOrApps() {
+        expectInvalid(sample6().copy(formatVersion = 5))
+        expectInvalid(sample5().copy(merchantRules = sample6().merchantRules))
+        expectInvalid(sample5().copy(importApps = sample6().importApps))
+    }
+
+    @Test
+    fun version6FileWithoutTheNewArraysIsInvalid() {
+        val noRules = JSONObject(BackupJson.serialize(sample6()))
+        noRules.remove("merchantRules")
+        assertEquals(BackupError.INVALID_DATA, errorOf(noRules.toString()))
+        val noApps = JSONObject(BackupJson.serialize(sample6()))
+        noApps.remove("importApps")
+        assertEquals(BackupError.INVALID_DATA, errorOf(noApps.toString()))
+    }
+
+    @Test
+    fun rejectsBadMerchantRules() {
+        val s = sample6()
+        val rule = s.merchantRules[0]
+        expectInvalid(s.copy(merchantRules = listOf(rule.copy(categoryId = 99)))) // unknown category
+        expectInvalid(s.copy(merchantRules = listOf(rule.copy(merchantKey = " ")))) // blank key
+        expectInvalid(s.copy(merchantRules = listOf(rule, rule.copy(categoryId = 9)))) // same key twice
+        BackupJson.validate(s)
+    }
+
+    @Test
+    fun rejectsBadImportApps() {
+        val s = sample6()
+        val app = s.importApps[0]
+        expectInvalid(s.copy(importApps = listOf(app.copy(accountId = 99)))) // unknown account
+        expectInvalid(s.copy(importApps = listOf(app.copy(packageName = "")))) // blank package
+        expectInvalid(s.copy(importApps = listOf(app.copy(packageName = "a|b")))) // would break the stored form
+        expectInvalid(s.copy(importApps = listOf(app, app.copy(accountId = 1)))) // same package twice
+    }
+
+    @Test
+    fun rejectsBadImportSource() {
+        val root = JSONObject(BackupJson.serialize(sample6()))
+        root.getJSONArray("importApps").getJSONObject(0).put("source", "TELEGRAM")
+        assertEquals(BackupError.INVALID_DATA, errorOf(root.toString()))
     }
 }

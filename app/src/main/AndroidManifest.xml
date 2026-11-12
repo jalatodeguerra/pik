@@ -5,6 +5,14 @@
     <!-- Asked only when the user first turns on a reminder (Android 13+), never at launch. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Lists the launcher apps in Settings (automatic import), without the QUERY_ALL_PACKAGES permission. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <application
         android:name=".PikApp"
         android:allowBackup="true"
@@ -30,6 +38,18 @@
                 android:name="android.app.shortcuts"
                 android:resource="@xml/shortcuts" />
         </activity>
+
+        <!-- Reads payment notifications of the apps the user picked (automatic import). Only the user can
+             turn it on, in the system's notification access settings. -->
+        <service
+            android:name=".importing.ImportNotificationListener"
+            android:exported="true"
+            android:label="@string/import_service_label"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
 
         <!-- WorkManager is initialised by PikApp (Configuration.Provider + HiltWorkerFactory). -->
         <provider

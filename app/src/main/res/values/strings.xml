@@ -499,4 +499,66 @@
     <string name="licences_show_text">Show the full licence</string>
     <string name="licences_hide_text">Hide the full licence</string>
     <string name="licences_ofl_note">The licence texts are in English, as published by the font authors.</string>
+
+    <!-- Automatic import: settings -->
+    <string name="settings_import">Automatic import</string>
+    <string name="import_service_label">Pik automatic import</string>
+    <string name="import_access_title">Notification access</string>
+    <string name="import_access_on">On</string>
+    <string name="import_access_off">Off</string>
+    <string name="import_access_turn_on">Turn on</string>
+    <string name="import_access_restricted_hint">On Android 13 and later, an app installed from a file may show \"Restricted setting\" here. If so, open Pik\'s app info, tap the ⋮ menu, choose \"Allow restricted settings\", and try again.</string>
+    <string name="import_open_app_info">Open Pik app info</string>
+    <string name="import_privacy">Pik reads only notifications from the apps you pick, only to find payments, and never sends them anywhere.</string>
+    <string name="import_apps_title">Apps to read</string>
+    <string name="import_apps_hint">Switch on the apps whose payment notifications Pik should look at. Known payment apps come first.</string>
+    <string name="import_apps_loading">Looking for apps…</string>
+    <string name="import_apps_none_known">No payment app found. Use \"Show all apps\" to pick one.</string>
+    <string name="import_apps_show_all">Show all apps</string>
+    <string name="import_apps_show_fewer">Show fewer apps</string>
+    <string name="import_apps_suggested">Payment app</string>
+    <string name="import_apps_account">Pik account for its payments</string>
+    <string name="inbox_settings_hint">Payments to check and add</string>
+
+    <!-- Automatic import: files -->
+    <string name="import_file_title">Import a file</string>
+    <string name="import_file_explanation">Read a CSV or Excel (.xlsx) export from your bank, Revolut or PayPal. Every row goes to the Inbox, where you confirm it.</string>
+    <string name="import_file_button">Import a file</string>
+    <string name="import_file_account_title">Which account is this file for?</string>
+    <string name="import_file_confirm">Import</string>
+    <string name="import_file_found">%1$d payments found in the file (%2$s format), %3$d rows skipped.</string>
+    <string name="import_file_done">%1$d new in the Inbox, %2$d already known.</string>
+    <string name="import_file_old_excel">This is an old Excel (.xls) file. Export it again as CSV or XLSX and try again.</string>
+    <string name="import_file_unreadable">Pik cannot read this file. Choose a CSV or XLSX export.</string>
+    <string name="import_file_no_rows">No payments found in this file.</string>
+    <string name="import_file_failed">Could not import the file.</string>
+    <string name="import_format_revolut">Revolut</string>
+    <string name="import_format_paypal">PayPal</string>
+    <string name="import_format_generic">bank</string>
+    <string name="import_source_relax">Relax Banking</string>
+    <string name="import_source_nexi">Nexi Pay</string>
+    <string name="import_source_revolut">Revolut</string>
+    <string name="import_source_paypal">PayPal</string>
+    <string name="import_source_other">Other app</string>
+    <string name="import_source_file">File</string>
+
+    <!-- Inbox -->
+    <string name="home_inbox_title">%1$d to review</string>
+    <string name="home_inbox_hint">Payments Pik found. Check them and add them.</string>
+    <string name="inbox_title">Inbox</string>
+    <string name="inbox_add_all">Add all with a category (%1$d)</string>
+    <string name="inbox_added_all">%1$d added</string>
+    <string name="inbox_empty_title">Nothing to review</string>
+    <string name="inbox_empty_message">When Pik finds a payment in a notification or a file, it appears here. You confirm each one before it counts.</string>
+    <string name="inbox_unknown_merchant">Unknown</string>
+    <string name="inbox_no_account">No account</string>
+    <string name="inbox_choose_category">Choose category</string>
+    <string name="inbox_action_add">Add</string>
+    <string name="inbox_action_edit">Edit</string>
+    <string name="inbox_action_dismiss">Dismiss</string>
+    <string name="inbox_already_title">Already in Pik (%1$d)</string>
+    <string name="inbox_already_hint">These look like payments you already entered. Restore one if it is a different payment.</string>
+    <string name="inbox_restore">Restore</string>
+    <string name="inbox_pick_category">Category</string>
+    <string name="inbox_pick_account">Which account?</string>
 </resources>

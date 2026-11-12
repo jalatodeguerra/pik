@@ -10,6 +10,7 @@ import com.pik.app.domain.Period
 import com.pik.app.domain.RecurrenceUnit
 import com.pik.app.domain.RecurringKind
 import com.pik.app.domain.TransactionType
+import com.pik.app.domain.importing.ImportSource
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDate
@@ -20,11 +21,13 @@ import java.time.LocalDate
  * formatVersion 2 added the "budgets" array; formatVersion 3 added the "debts" and "debtEntries"
  * arrays and the optional "settings" object. formatVersion 4 added taegBasisPoints, type,
  * totalInstallments and installmentsPaidBefore to every debt (aprBasisPoints is the TAN). formatVersion 5
- * added the "recurringRules" array. Version 1 to 4 files can still be read: the missing fields and
- * arrays get their defaults (no recurring rules).
+ * added the "recurringRules" array. formatVersion 6 added the "merchantRules" array (learned categories of the
+ * automatic import) and the "importApps" array (which payment apps are read, and for which account); pending
+ * inbox items are not backed up. Version 1 to 5 files can still be read: the missing fields and arrays get
+ * their defaults (no recurring rules, no merchant rules, no import apps).
  */
 object BackupJson {
-    const val FORMAT_VERSION = 5
+    const val FORMAT_VERSION = 6
     private const val OLDEST_SUPPORTED_VERSION = 1
     const val MAX_INSTALLMENTS = 1200
     const val MAX_RECURRING_INTERVAL = 120
@@ -57,6 +60,13 @@ object BackupJson {
                 "recurringRules",
                 JSONArray().also { arr -> file.recurringRules.forEach { arr.put(recurringRuleToJson(it)) } },
             )
+        }
+        if (file.formatVersion >= 6) {
+            root.put(
+                "merchantRules",
+                JSONArray().also { arr -> file.merchantRules.forEach { arr.put(merchantRuleToJson(it)) } },
+            )
+            root.put("importApps", JSONArray().also { arr -> file.importApps.forEach { arr.put(importAppToJson(it)) } })
         }
         return root.toString(2)
     }
@@ -100,6 +110,16 @@ object BackupJson {
                 } else {
                     emptyList()
                 },
+                merchantRules = if (version >= 6) {
+                    root.getJSONArray("merchantRules").mapObjects(::merchantRuleFromJson)
+                } else {
+                    emptyList()
+                },
+                importApps = if (version >= 6) {
+                    root.getJSONArray("importApps").mapObjects(::importAppFromJson)
+                } else {
+                    emptyList()
+                },
                 settings = if (version >= 3 && root.has("settings") && !root.isNull("settings")) {
                     settingsFromJson(root.getJSONObject("settings"))
                 } else {
@@ -136,6 +156,7 @@ object BackupJson {
             invalid()
         }
         if (file.formatVersion < 5 && file.recurringRules.isNotEmpty()) invalid()
+        if (file.formatVersion < 6 && (file.merchantRules.isNotEmpty() || file.importApps.isNotEmpty())) invalid()
         if (file.formatVersion < 3 && (file.debts.isNotEmpty() || file.debtEntries.isNotEmpty() || file.settings != null)) {
             invalid()
         }
@@ -202,6 +223,16 @@ object BackupJson {
             // A debt payment points to its debt (and has no category); nothing else points to a debt.
             if ((r.kind == RecurringKind.DEBT_PAYMENT) != (r.debtId != null)) invalid()
             if (r.kind == RecurringKind.DEBT_PAYMENT && r.categoryId != null) invalid()
+        }
+        val ruleKeys = file.merchantRules.map { it.merchantKey }
+        if (ruleKeys.any { it.isBlank() } || ruleKeys.toSet().size != ruleKeys.size) invalid()
+        for (rule in file.merchantRules) {
+            if (rule.categoryId !in categorySet) invalid()
+        }
+        val packages = file.importApps.map { it.packageName }
+        if (packages.any { it.isBlank() || it.contains('|') } || packages.toSet().size != packages.size) invalid()
+        for (app in file.importApps) {
+            if (app.accountId != null && app.accountId !in accountSet) invalid()
         }
         val budgetIds = file.budgets.map { it.id }
         if (budgetIds.any { it <= 0 } || budgetIds.toSet().size != budgetIds.size) invalid()
@@ -319,6 +350,18 @@ object BackupJson {
         put("createdAt", r.createdAt)
     }
 
+    private fun merchantRuleToJson(r: BackupMerchantRule) = JSONObject().apply {
+        put("merchantKey", r.merchantKey)
+        put("categoryId", r.categoryId)
+        put("updatedAt", r.updatedAt)
+    }
+
+    private fun importAppToJson(a: BackupImportApp) = JSONObject().apply {
+        put("packageName", a.packageName)
+        put("source", a.source.name)
+        putNullable("accountId", a.accountId)
+    }
+
     private fun settingsToJson(s: BackupSettings) = JSONObject().apply {
         put("monthStartDay", s.monthStartDay)
         putNullable("expectedIncomeCents", s.expectedIncomeCents)
@@ -427,6 +470,18 @@ object BackupJson {
         remindDayBefore = o.getBoolean("remindDayBefore"),
         active = o.getBoolean("active"),
         createdAt = o.getLong("createdAt"),
+    )
+
+    private fun merchantRuleFromJson(o: JSONObject) = BackupMerchantRule(
+        merchantKey = o.getString("merchantKey"),
+        categoryId = o.getLong("categoryId"),
+        updatedAt = o.getLong("updatedAt"),
+    )
+
+    private fun importAppFromJson(o: JSONObject) = BackupImportApp(
+        packageName = o.getString("packageName"),
+        source = ImportSource.valueOf(o.getString("source")),
+        accountId = o.nullableLong("accountId"),
     )
 
     private fun settingsFromJson(o: JSONObject) = BackupSettings(

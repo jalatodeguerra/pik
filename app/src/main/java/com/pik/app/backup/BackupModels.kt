@@ -8,6 +8,7 @@ import com.pik.app.domain.PayoffOrder
 import com.pik.app.domain.RecurrenceUnit
 import com.pik.app.domain.RecurringKind
 import com.pik.app.domain.TransactionType
+import com.pik.app.domain.importing.ImportSource
 import java.time.LocalDate
 
 /** Plain copies of the database rows (all columns). No Room or Android types, so they are JVM testable. */
@@ -113,6 +114,20 @@ data class BackupRecurringRule(
     val createdAt: Long,
 )
 
+/** A learned "this merchant is this category" rule (formatVersion 6). Every column of the merchant_rules table. */
+data class BackupMerchantRule(
+    val merchantKey: String,
+    val categoryId: Long,
+    val updatedAt: Long,
+)
+
+/** A payment app read by the automatic import and its Pik account (formatVersion 6, from DataStore). */
+data class BackupImportApp(
+    val packageName: String,
+    val source: ImportSource,
+    val accountId: Long?,
+)
+
 /** The DataStore settings that belong to the data (not the one-off flags like onboarding). */
 data class BackupSettings(
     val monthStartDay: Int,
@@ -136,6 +151,10 @@ data class BackupFile(
     val debtEntries: List<BackupDebtEntry> = emptyList(),
     /** Empty for formatVersion 1 to 4 files (they have no recurring rules). */
     val recurringRules: List<BackupRecurringRule> = emptyList(),
+    /** Empty for formatVersion 1 to 5 files (they have no merchant rules). Pending inbox items are never backed up. */
+    val merchantRules: List<BackupMerchantRule> = emptyList(),
+    /** Empty for formatVersion 1 to 5 files. */
+    val importApps: List<BackupImportApp> = emptyList(),
     /** Optional (formatVersion 3 and later). null = leave the current settings alone on restore. */
     val settings: BackupSettings? = null,
 )

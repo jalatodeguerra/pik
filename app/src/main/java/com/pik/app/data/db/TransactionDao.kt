@@ -81,6 +81,10 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions")
     suspend fun getAll(): List<TransactionEntity>
 
+    /** Transactions whose calendar day is between the two epoch days (inclusive), for the import duplicate check. */
+    @Query("SELECT * FROM transactions WHERE date BETWEEN :fromEpochDay AND :toEpochDay")
+    suspend fun getBetween(fromEpochDay: Long, toEpochDay: Long): List<TransactionEntity>
+
     @Insert
     suspend fun insert(transaction: TransactionEntity): Long
 

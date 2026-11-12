@@ -8,6 +8,10 @@ import com.pik.app.domain.DebtType
 import com.pik.app.domain.RecurrenceUnit
 import com.pik.app.domain.RecurringKind
 import com.pik.app.domain.TransactionType
+import com.pik.app.domain.importing.ImportDirection
+import com.pik.app.domain.importing.ImportSource
+import com.pik.app.domain.importing.ImportStatus
+import com.pik.app.domain.importing.ImportSuggestion
 import java.time.LocalDate
 
 class Converters {
@@ -58,4 +62,28 @@ class Converters {
 
     @TypeConverter
     fun stringToRecurrenceUnit(value: String?): RecurrenceUnit? = value?.let { RecurrenceUnit.valueOf(it) }
+
+    @TypeConverter
+    fun importSourceToString(value: ImportSource?): String? = value?.name
+
+    @TypeConverter
+    fun stringToImportSource(value: String?): ImportSource? = value?.let { ImportSource.valueOf(it) }
+
+    @TypeConverter
+    fun importDirectionToString(value: ImportDirection?): String? = value?.name
+
+    @TypeConverter
+    fun stringToImportDirection(value: String?): ImportDirection? = value?.let { ImportDirection.valueOf(it) }
+
+    @TypeConverter
+    fun importStatusToString(value: ImportStatus?): String? = value?.name
+
+    @TypeConverter
+    fun stringToImportStatus(value: String?): ImportStatus? = value?.let { ImportStatus.valueOf(it) }
+
+    @TypeConverter
+    fun importSuggestionToString(value: ImportSuggestion?): String? = value?.name
+
+    @TypeConverter
+    fun stringToImportSuggestion(value: String?): ImportSuggestion? = value?.let { ImportSuggestion.valueOf(it) }
 }

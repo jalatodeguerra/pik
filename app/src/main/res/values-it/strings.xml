@@ -499,4 +499,66 @@
     <string name="licences_show_text">Mostra la licenza completa</string>
     <string name="licences_hide_text">Nascondi la licenza completa</string>
     <string name="licences_ofl_note">I testi delle licenze sono in inglese, come pubblicati dagli autori dei font.</string>
+
+    <!-- Automatic import: settings -->
+    <string name="settings_import">Importazione automatica</string>
+    <string name="import_service_label">Importazione automatica di Pik</string>
+    <string name="import_access_title">Accesso alle notifiche</string>
+    <string name="import_access_on">Attivo</string>
+    <string name="import_access_off">Non attivo</string>
+    <string name="import_access_turn_on">Attiva</string>
+    <string name="import_access_restricted_hint">Da Android 13 un\'app installata da un file può mostrare \"Impostazione con restrizioni\". In quel caso apri le info app di Pik, tocca il menu ⋮, scegli \"Consenti impostazioni con restrizioni\" e riprova.</string>
+    <string name="import_open_app_info">Apri le info app di Pik</string>
+    <string name="import_privacy">Pik legge solo le notifiche delle app che scegli, solo per trovare i pagamenti, e non le invia da nessuna parte.</string>
+    <string name="import_apps_title">App da leggere</string>
+    <string name="import_apps_hint">Attiva le app di cui Pik deve guardare le notifiche di pagamento. Le app di pagamento note sono in cima.</string>
+    <string name="import_apps_loading">Cerco le app…</string>
+    <string name="import_apps_none_known">Nessuna app di pagamento trovata. Usa \"Mostra tutte le app\" per sceglierne una.</string>
+    <string name="import_apps_show_all">Mostra tutte le app</string>
+    <string name="import_apps_show_fewer">Mostra meno app</string>
+    <string name="import_apps_suggested">App di pagamento</string>
+    <string name="import_apps_account">Conto di Pik per i suoi pagamenti</string>
+    <string name="inbox_settings_hint">Pagamenti da controllare e aggiungere</string>
+
+    <!-- Automatic import: files -->
+    <string name="import_file_title">Importa un file</string>
+    <string name="import_file_explanation">Leggi un export CSV o Excel (.xlsx) della tua banca, di Revolut o di PayPal. Ogni riga finisce in \"Da rivedere\", dove la confermi.</string>
+    <string name="import_file_button">Importa un file</string>
+    <string name="import_file_account_title">Per quale conto è questo file?</string>
+    <string name="import_file_confirm">Importa</string>
+    <string name="import_file_found">Trovati %1$d pagamenti nel file (formato %2$s), %3$d righe saltate.</string>
+    <string name="import_file_done">%1$d nuovi da rivedere, %2$d già noti.</string>
+    <string name="import_file_old_excel">È un vecchio file Excel (.xls). Esportalo di nuovo come CSV o XLSX e riprova.</string>
+    <string name="import_file_unreadable">Pik non riesce a leggere questo file. Scegli un export CSV o XLSX.</string>
+    <string name="import_file_no_rows">Nessun pagamento trovato in questo file.</string>
+    <string name="import_file_failed">Impossibile importare il file.</string>
+    <string name="import_format_revolut">Revolut</string>
+    <string name="import_format_paypal">PayPal</string>
+    <string name="import_format_generic">banca</string>
+    <string name="import_source_relax">Relax Banking</string>
+    <string name="import_source_nexi">Nexi Pay</string>
+    <string name="import_source_revolut">Revolut</string>
+    <string name="import_source_paypal">PayPal</string>
+    <string name="import_source_other">Altra app</string>
+    <string name="import_source_file">File</string>
+
+    <!-- Inbox -->
+    <string name="home_inbox_title">%1$d da rivedere</string>
+    <string name="home_inbox_hint">Pagamenti trovati da Pik. Controllali e aggiungili.</string>
+    <string name="inbox_title">Da rivedere</string>
+    <string name="inbox_add_all">Aggiungi tutti con categoria (%1$d)</string>
+    <string name="inbox_added_all">%1$d aggiunti</string>
+    <string name="inbox_empty_title">Niente da rivedere</string>
+    <string name="inbox_empty_message">Quando Pik trova un pagamento in una notifica o in un file, compare qui. Confermi ogni movimento prima che conti.</string>
+    <string name="inbox_unknown_merchant">Sconosciuto</string>
+    <string name="inbox_no_account">Nessun conto</string>
+    <string name="inbox_choose_category">Scegli categoria</string>
+    <string name="inbox_action_add">Aggiungi</string>
+    <string name="inbox_action_edit">Modifica</string>
+    <string name="inbox_action_dismiss">Ignora</string>
+    <string name="inbox_already_title">Già in Pik (%1$d)</string>
+    <string name="inbox_already_hint">Sembrano pagamenti che hai già inserito. Ripristinane uno se è un pagamento diverso.</string>
+    <string name="inbox_restore">Ripristina</string>
+    <string name="inbox_pick_category">Categoria</string>
+    <string name="inbox_pick_account">Quale conto?</string>
 </resources>

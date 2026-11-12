@@ -156,6 +156,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpenCategories: () -> Unit,
     onOpenLicences: () -> Unit,
+    onOpenInbox: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -307,6 +308,8 @@ fun SettingsScreen(
                         modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
                     )
                 }
+
+                ImportSettingsSection(snackbarHostState = snackbarHostState, onOpenInbox = onOpenInbox)
 
                 SectionTitle(stringResource(R.string.settings_language))
                 PikCard(modifier = Modifier.fillMaxWidth()) {

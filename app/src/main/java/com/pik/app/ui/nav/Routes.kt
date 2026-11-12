@@ -13,10 +13,16 @@ object Routes {
     const val INSIGHTS = "insights"
 
     const val ARG_TRANSACTION_ID = "transactionId"
-    const val ADD = "add?$ARG_TRANSACTION_ID={$ARG_TRANSACTION_ID}"
+    const val ARG_IMPORT_ITEM_ID = "importItemId"
+    const val ADD = "add?$ARG_TRANSACTION_ID={$ARG_TRANSACTION_ID}&$ARG_IMPORT_ITEM_ID={$ARG_IMPORT_ITEM_ID}"
 
     fun add(): String = "add"
     fun edit(transactionId: Long): String = "add?$ARG_TRANSACTION_ID=$transactionId"
+
+    /** The Add screen filled in from an Inbox item; saving it marks the item as added. */
+    fun importEdit(importItemId: Long): String = "add?$ARG_IMPORT_ITEM_ID=$importItemId"
+
+    const val INBOX = "inbox"
 
     const val ARG_DEBT_ID = "debtId"
     const val DEBT_DETAIL = "debt/{$ARG_DEBT_ID}"
