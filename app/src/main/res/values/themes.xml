@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="pik_background">#0B0D10</color>
+    <color name="pik_lime">#C6F36B</color>
+
+    <style name="Theme.Pik" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/pik_background</item>
+        <item name="android:colorBackground">@color/pik_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

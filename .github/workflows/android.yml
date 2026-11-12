@@ -1,0 +1,51 @@
+name: Android CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+        with:
+          # The default list includes the retired 'tools' package, which now fails.
+          packages: platform-tools
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build, unit test, lint
+        run: ./gradlew --no-daemon assembleDebug testDebugUnitTest lintDebug
+
+      # Room writes the schema JSON during the build. Fail if it differs from the committed one,
+      # and print the generated file so it can be committed.
+      - name: Check Room schemas are committed
+        run: |
+          git add -N app/schemas
+          if ! git diff --quiet -- app/schemas; then
+            git diff -- app/schemas
+            exit 1
+          fi
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: pik-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+
+      - name: Upload reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pik-reports
+          path: |
+            app/build/reports/
+            app/build/test-results/

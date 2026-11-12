@@ -1,0 +1,564 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Pik</string>
+
+    <!-- Tabs -->
+    <string name="tab_home">Home</string>
+    <string name="tab_activity">Activity</string>
+    <string name="tab_plan">Plan</string>
+    <string name="tab_debts">Debts</string>
+    <string name="add_transaction">Add transaction</string>
+
+    <!-- Common -->
+    <string name="action_cancel">Cancel</string>
+    <string name="action_close">Close</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_ok">OK</string>
+    <string name="date_today">Today</string>
+    <string name="date_yesterday">Yesterday</string>
+    <string name="account_type_cash">Cash</string>
+    <string name="account_type_bank">Bank</string>
+    <string name="account_default_bank">Bank</string>
+    <string name="account_default_cash">Cash</string>
+    <string name="account_default_new">New account</string>
+    <string name="transaction_transfer">Transfer</string>
+    <string name="transaction_adjustment">Balance adjustment</string>
+    <string name="transaction_uncategorized">Uncategorised</string>
+    <string name="transfer_route">%1$s → %2$s</string>
+
+    <!-- First run -->
+    <string name="firstrun_welcome_message">Pik helps you track spending and pay off debt. Everything stays on your phone.</string>
+    <string name="firstrun_get_started">Get started</string>
+    <string name="firstrun_accounts_title">Your accounts</string>
+    <string name="firstrun_accounts_message">Add the places where your money lives and how much is in each one today.</string>
+    <string name="firstrun_account_name">Account name</string>
+    <string name="firstrun_starting_balance">Starting balance</string>
+    <string name="firstrun_add_account">Add another account</string>
+    <string name="firstrun_remove_account">Remove account</string>
+    <string name="firstrun_finish">Finish</string>
+
+    <!-- Add / edit transaction -->
+    <string name="add_title">Add</string>
+    <string name="add_title_edit">Edit</string>
+    <string name="type_expense">Expense</string>
+    <string name="type_income">Income</string>
+    <string name="type_transfer">Transfer</string>
+    <string name="add_category">Category</string>
+    <string name="add_account">Account</string>
+    <string name="add_from">From</string>
+    <string name="add_to">To</string>
+    <string name="add_date">Date</string>
+    <string name="add_note">Note</string>
+    <string name="add_save">Save</string>
+    <string name="add_save_and_add_another">Save and add another</string>
+    <string name="add_saved">Saved</string>
+    <string name="keypad_backspace">Delete last digit</string>
+    <string name="delete_title">Delete this transaction?</string>
+    <string name="delete_message">This cannot be undone.</string>
+
+    <!-- Activity -->
+    <string name="activity_title">Activity</string>
+    <string name="activity_empty">No transactions in this month yet.</string>
+    <string name="previous_month">Previous month</string>
+    <string name="next_month">Next month</string>
+
+    <!-- Home -->
+    <string name="home_you_have">You have</string>
+    <string name="home_cash_and_bank">Cash and bank accounts</string>
+    <string name="home_you_owe">You owe</string>
+    <string name="home_you_owe_hint">All your debts together</string>
+    <string name="home_you_owe_hint_empty">Add your debts in the Debts tab</string>
+    <string name="home_money_in">Money in, %1$s</string>
+    <string name="home_money_out">Money out, %1$s</string>
+    <string name="home_accounts">Accounts</string>
+    <string name="home_recent">Recent</string>
+    <string name="home_see_all">See all</string>
+    <string name="home_empty_title">No transactions yet</string>
+    <string name="home_empty_message">Add your first expense or income to see it here.</string>
+    <string name="home_empty_button">Add your first transaction</string>
+
+    <!-- Common additions -->
+    <string name="action_back">Back</string>
+    <string name="action_save">Save</string>
+    <string name="action_archive">Archive</string>
+    <string name="action_unarchive">Unarchive</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_accounts">Accounts</string>
+    <string name="settings_categories">Categories</string>
+    <string name="settings_manage_categories">Manage categories</string>
+    <string name="settings_backup">Backup</string>
+    <string name="settings_about">About</string>
+    <string name="settings_language">Language</string>
+    <string name="about_version">Version</string>
+    <string name="about_offline">Pik works fully offline. Your data never leaves your phone unless you save a backup file.</string>
+
+    <!-- Accounts -->
+    <string name="account_add">Add account</string>
+    <string name="account_new_title">New account</string>
+    <string name="account_edit_title">Edit account</string>
+    <string name="account_archived">Archived</string>
+    <string name="account_check_balance">Check balance</string>
+    <string name="account_archive_hint">Archived accounts are hidden from Home and the pickers. Their transactions stay in Activity.</string>
+    <string name="account_cannot_archive_last">You need at least one active account.</string>
+    <string name="account_delete_blocked">This account has transactions, so it cannot be deleted. Archive it instead.</string>
+    <string name="account_delete_title">Delete this account?</string>
+    <string name="account_in_use">This account has transactions and cannot be deleted.</string>
+
+    <!-- Categories -->
+    <string name="categories_title">Categories</string>
+    <string name="category_add">Add category</string>
+    <string name="category_new_title">New category</string>
+    <string name="category_edit_title">Edit category</string>
+    <string name="category_name">Category name</string>
+    <string name="category_icon">Icon</string>
+    <string name="category_color">Color</string>
+    <string name="category_archive_hint">Archived categories are hidden when adding transactions. Existing transactions keep them.</string>
+    <string name="category_cannot_archive_last">You need at least one active category of this kind.</string>
+    <string name="category_delete_blocked">This category is used by transactions, so it cannot be deleted. Archive it instead.</string>
+    <string name="category_delete_title">Delete this category?</string>
+    <string name="category_in_use">This category is used by transactions and cannot be deleted.</string>
+
+    <!-- Check balance -->
+    <string name="check_balance_title">Check balance: %1$s</string>
+    <string name="check_balance_pik_says">Pik says you have %1$s</string>
+    <string name="check_balance_field">Type what your bank app shows</string>
+    <string name="check_balance_hint">Type the real balance, for example 1.234,56</string>
+    <string name="check_balance_invalid">This is not a valid amount.</string>
+    <string name="check_balance_matches">Already matches</string>
+    <string name="check_balance_difference">Pik will add an adjustment of %1$s</string>
+    <string name="check_balance_adjust">Adjust</string>
+    <string name="balance_check_note">Balance check</string>
+    <string name="delete_adjustment_title">Delete this balance adjustment?</string>
+    <string name="delete_adjustment_message">The account balance changes back. This cannot be undone.</string>
+
+    <!-- Backup -->
+    <string name="backup_last_saved">Last saved: %1$s</string>
+    <string name="backup_never">Never</string>
+    <string name="backup_explanation">Save all your accounts, categories, transactions, budgets, debts and plan settings to one file. Keep it somewhere safe, for example in your cloud storage.</string>
+    <string name="backup_save">Save backup file</string>
+    <string name="backup_restore">Restore from file</string>
+    <string name="backup_restore_confirm">Restore</string>
+    <string name="backup_saved">Backup saved</string>
+    <string name="backup_failed">Could not save the backup file.</string>
+    <string name="restore_confirm_title">Restore this backup?</string>
+    <string name="restore_confirm_message">This replaces everything in Pik with the backup. The file has %1$d accounts, %2$d categories, %3$d transactions and %4$d debts.</string>
+    <string name="restore_done">Backup restored</string>
+    <string name="restore_read_failed">Could not read that file.</string>
+    <string name="restore_not_a_backup">This file is not a Pik backup.</string>
+    <string name="restore_unsupported_version">This backup was made by a newer version of Pik. Update the app and try again.</string>
+    <string name="restore_invalid_data">This backup file is damaged or incomplete. Nothing was changed.</string>
+    <string name="restore_failed">Restore failed. Nothing was changed.</string>
+
+    <!-- Activity search and filters -->
+    <string name="activity_search_hint">Search note, category, account or debt</string>
+    <string name="activity_search_clear">Clear search</string>
+    <string name="activity_no_matches">No transactions match your search or filters.</string>
+    <string name="filter_all">All</string>
+    <string name="filter_expenses">Expenses</string>
+    <string name="filter_income">Income</string>
+    <string name="filter_transfers">Transfers</string>
+    <string name="filter_all_accounts">All accounts</string>
+
+    <!-- App shortcut -->
+    <string name="shortcut_add_expense_short">Add expense</string>
+    <string name="shortcut_add_expense_long">Add an expense</string>
+
+    <!-- Plan -->
+    <string name="plan_title">Plan</string>
+    <string name="plan_period_range">%1$s &#8211; %2$s</string>
+    <string name="previous_period">Previous period</string>
+    <string name="next_period">Next period</string>
+    <string name="safe_to_spend">Safe to spend</string>
+    <string name="safe_per_day">about %1$s per day for %2$d days</string>
+    <string name="safe_per_day_last">about %1$s for today, the last day</string>
+    <string name="safe_over_spent">Over-spent</string>
+    <string name="safe_over_spent_by">You have spent %1$s more than your income this period.</string>
+    <string name="safe_debts_set_aside">%1$s still to pay on debts is already set aside.</string>
+    <string name="safe_spent_of_planned">Spent %1$s of %2$s</string>
+    <string name="safe_no_income_hint">Add income, or set your expected monthly income in Settings, to see what is safe to spend.</string>
+    <string name="home_safe_to_spend_over">Over-spent by %1$s</string>
+    <string name="plan_totals_title">Totals</string>
+    <string name="plan_total_income">Money in</string>
+    <string name="plan_total_spent">Money out</string>
+    <string name="plan_total_left">Left over</string>
+    <string name="plan_overall_budget">Total budget</string>
+    <string name="plan_budgets">Budgets</string>
+    <string name="plan_spent_of_limit">%1$s of %2$s</string>
+    <string name="plan_left">%1$s left</string>
+    <string name="plan_over">%1$s over</string>
+    <string name="plan_not_budgeted">Not budgeted</string>
+    <string name="plan_set_budgets">Set budgets</string>
+    <string name="plan_edit_budgets">Edit budgets</string>
+    <string name="plan_empty_title">No budgets yet</string>
+    <string name="plan_empty_message">A budget is a limit for what you want to spend, overall or in a category, in each month. Pik shows how much is left as you spend.</string>
+    <string name="plan_empty_past">No budgets were set for this period.</string>
+
+    <!-- Budget editor -->
+    <string name="budgets_title">Set budgets</string>
+    <string name="budgets_applies_from">These limits apply from %1$s on. Earlier periods keep their old limits.</string>
+    <string name="budgets_hint">Leave a field empty for no budget.</string>
+    <string name="budgets_overall">Total budget</string>
+    <string name="budgets_overall_label">Limit for all spending</string>
+    <string name="budgets_categories">By category</string>
+    <string name="budgets_invalid">Check the amounts: some are not valid.</string>
+
+    <!-- Settings: plan -->
+    <string name="settings_plan">Plan</string>
+    <string name="settings_month_starts">Month starts on</string>
+    <string name="settings_month_starts_value">Day %1$d</string>
+    <string name="settings_month_starts_hint">If you are paid on the 27th, choose 27: your month then runs from the 27th to the 26th. Home and Plan use this month. Activity always shows calendar months.</string>
+    <string name="settings_expected_income">Expected monthly income</string>
+    <string name="settings_expected_income_not_set">Not set</string>
+    <string name="settings_expected_income_hint">Optional. Used to work out what is safe to spend before your income arrives. If you receive more, the real income is used.</string>
+    <string name="settings_expected_income_field">Expected income per month</string>
+    <string name="settings_expected_income_clear_hint">Leave empty to clear it.</string>
+
+    <!-- Debt payments in lists -->
+    <string name="transaction_debt_payment">Debt payment</string>
+    <string name="transaction_debt_payment_named">Debt payment · %1$s</string>
+    <string name="plan_debt_payments">Debt payments</string>
+    <string name="add_debt_payment_for">Paying down</string>
+    <string name="add_debt_payment_hint">A debt payment counts as spending and lowers the debt. To change the debt, delete this payment and log a new one from the debt.</string>
+
+    <!-- Debts tab -->
+    <string name="debts_title">Debts</string>
+    <string name="debts_add">Add debt</string>
+    <string name="debts_empty_title">No debts yet</string>
+    <string name="debts_empty_message">Add a debt to see how much you still owe, when you will be debt-free and how extra payments speed it up. Debt payments count as spending.</string>
+    <string name="debts_empty_button">Add a debt</string>
+    <string name="debts_total_remaining">You still owe</string>
+    <string name="debts_paid_off_percent">%1$d%% paid off</string>
+    <string name="debts_debt_free_by">Debt-free by %1$s</string>
+    <string name="debts_debt_free_now">You are debt-free</string>
+    <string name="debts_interest_to_pay">About %1$s interest still to pay</string>
+    <string name="debts_never_pays_off">This plan doesn\'t cover the interest. Pay more each month, or the debt keeps growing.</string>
+    <string name="debts_plan_assumption">Based on the minimum payments plus %1$s extra per month, and the TAN you entered for each debt.</string>
+    <string name="debts_order_title">Payoff order</string>
+    <string name="debts_order_highest_interest">Highest interest</string>
+    <string name="debts_order_smallest_balance">Smallest balance</string>
+    <string name="debts_order_hint">The extra money goes to the first debt in the list. When a debt is paid off, its payment rolls over to the next one.</string>
+    <string name="debts_order_result">%1$s, %2$s interest</string>
+    <string name="debts_order_never">Never paid off</string>
+    <string name="debts_whatif_title">What if I pay more?</string>
+    <string name="debts_whatif_extra">Extra per month: %1$s</string>
+    <string name="debts_whatif_saved">Saved: %1$s</string>
+    <string name="debts_whatif_use">Use this</string>
+    <string name="debts_whatif_no_extra">No extra payment. Move the slider to see what it changes.</string>
+    <string name="debts_whatif_sooner">Debt-free %1$s sooner and %2$s less interest than with no extra payment.</string>
+    <string name="debts_whatif_possible">With this extra payment the debts can be paid off.</string>
+    <string name="debts_whatif_never">Still not enough to cover the interest.</string>
+    <string name="debts_your_debts">Your debts</string>
+    <string name="debts_archived">Archived</string>
+    <string name="debts_row_details">%1$s · minimum %2$s · due day %3$d</string>
+    <string name="debts_row_details_rata">%1$s · instalment %2$s · due day %3$d</string>
+    <string name="debt_rates_tan">TAN %1$s</string>
+    <string name="debt_rates_tan_taeg">TAN %1$s · TAEG %2$s</string>
+    <string name="debt_installments_left_one">%1$d left</string>
+    <string name="debt_installments_left_other">%1$d left</string>
+    <string name="debt_installments_status">Instalment %1$d of %2$d · %3$s · ends %4$s</string>
+    <string name="debt_installments_done">Instalment %1$d of %2$d · all paid</string>
+    <string name="debts_paid_off">Paid off</string>
+    <string name="duration_month">%1$d month</string>
+    <string name="duration_months">%1$d months</string>
+    <string name="duration_year_months">%1$d y %2$d m</string>
+
+    <!-- Add / edit debt -->
+    <string name="debt_new_title">New debt</string>
+    <string name="debt_edit_title">Edit debt</string>
+    <string name="debt_name">Name</string>
+    <string name="debt_balance_now">Current balance</string>
+    <string name="debt_balance_when_added">Balance when added</string>
+    <string name="debt_balance_edit_hint">This is where Pik starts counting. To match your bank, use Check balance on the debt page instead.</string>
+    <string name="debt_original">Original amount (optional)</string>
+    <string name="debt_original_hint">The size of the loan when you took it. Used to show how much is already paid off.</string>
+    <string name="debt_type">Type of debt</string>
+    <string name="debt_type_car_loan">Car loan</string>
+    <string name="debt_type_personal_loan">Personal loan</string>
+    <string name="debt_type_mortgage">Mortgage</string>
+    <string name="debt_type_consumer_credit">Consumer credit</string>
+    <string name="debt_type_student_loan">Student loan</string>
+    <string name="debt_type_family_friends">Family or friends</string>
+    <string name="debt_type_other">Other</string>
+    <string name="debt_tan">TAN</string>
+    <string name="debt_tan_hint">Rate the bank charges on the balance</string>
+    <string name="debt_taeg">TAEG (optional)</string>
+    <string name="debt_taeg_hint">Total yearly cost, including fees</string>
+    <string name="debt_rate_placeholder">For example 7,5</string>
+    <string name="debt_taeg_lower_warning">The TAEG is usually not lower than the TAN. Check both values.</string>
+    <string name="debt_min_payment">Minimum payment per month</string>
+    <string name="debt_instalment">Monthly instalment (rata)</string>
+    <string name="debt_total_installments">Total instalments (optional)</string>
+    <string name="debt_total_installments_hint">For example 60 for a 5-year loan</string>
+    <string name="debt_installments_paid_before">Instalments already paid</string>
+    <string name="debt_installments_paid_before_hint">Paid before you added this loan to Pik. Payments you log here count as an instalment when they are at least 90% of the monthly instalment.</string>
+    <string name="debt_due_day">Due day</string>
+    <string name="debt_due_day_field">Due day: %1$d</string>
+    <string name="debt_due_day_hint">Day of the month when the payment is due (1 to 28).</string>
+    <string name="debt_invalid">Check the highlighted fields.</string>
+    <string name="debt_archive_hint">An archived debt is left out of You owe, the payoff plan and safe to spend. Its history stays.</string>
+    <string name="debt_delete_title">Delete this debt?</string>
+    <string name="debt_delete_message">Its interest and fee entries are deleted too. This cannot be undone.</string>
+    <string name="debt_delete_blocked">This debt has payments, so it cannot be deleted. Archive it instead.</string>
+
+    <!-- Debt detail -->
+    <string name="debt_detail_you_owe">You owe</string>
+    <string name="debt_detail_paid_of">%1$s paid of %2$s</string>
+    <string name="debt_detail_rate_line">%1$s · minimum %2$s · due day %3$d</string>
+    <string name="debt_detail_rate_line_rata">%1$s · instalment %2$s · due day %3$d</string>
+    <string name="debt_detail_log_payment">Log payment</string>
+    <string name="debt_detail_add_entry">Add interest or fee</string>
+    <string name="debt_detail_check_balance">Check balance</string>
+    <string name="debt_detail_edit">Edit debt</string>
+    <string name="debt_detail_history">History</string>
+    <string name="debt_detail_history_empty">No payments or entries yet.</string>
+    <string name="debt_history_payment_from">Payment · %1$s</string>
+    <string name="debt_entry_interest">Interest</string>
+    <string name="debt_entry_fee">Fee</string>
+    <string name="debt_entry_adjustment">Balance adjustment</string>
+    <string name="debt_entry_delete_title">Delete this entry?</string>
+    <string name="debt_entry_delete_message">The amount you owe changes back. This cannot be undone.</string>
+    <string name="debt_not_found">This debt no longer exists.</string>
+
+    <!-- Debt dialogs -->
+    <string name="debt_payment_title">Log payment: %1$s</string>
+    <string name="debt_payment_amount">Amount</string>
+    <string name="debt_payment_account">Paid from</string>
+    <string name="debt_payment_note">Note (optional)</string>
+    <string name="debt_payment_save">Log payment</string>
+    <string name="debt_entry_title">Add interest or fee</string>
+    <string name="debt_entry_amount">Amount</string>
+    <string name="debt_entry_note">Note (optional)</string>
+    <string name="debt_entry_hint">Enter what the lender charged. It raises what you owe.</string>
+    <string name="debt_check_title">Check balance: %1$s</string>
+    <string name="debt_check_pik_says">Pik says you owe %1$s</string>
+    <string name="debt_check_field">Type what your bank says you owe</string>
+    <string name="debt_check_hint">Type the real amount, for example 1.234,56</string>
+    <string name="debt_check_difference">Pik will add an adjustment of %1$s</string>
+    <string name="debt_check_adjust">Adjust</string>
+    <string name="debt_check_note">Balance check</string>
+    <string name="date_field">Date: %1$s</string>
+
+    <!-- Recurring -->
+    <string name="date_tomorrow">Tomorrow</string>
+    <string name="recurring_title">Recurring</string>
+    <string name="recurring_link_hint">Bills, subscriptions and regular income</string>
+    <string name="recurring_link_hint_empty">Add your bills, subscriptions and regular income</string>
+    <string name="recurring_link_hint_plan">See what is coming up and add bills</string>
+    <string name="recurring_kind_bill">Bill</string>
+    <string name="recurring_kind_subscription">Subscription</string>
+    <string name="recurring_kind_income">Income</string>
+    <string name="recurring_kind_debt_payment">Debt payment</string>
+    <string name="recurring_group_bills">Bills</string>
+    <string name="recurring_group_subscriptions">Subscriptions</string>
+    <string name="recurring_group_debt_payments">Debt payments</string>
+    <string name="recurring_group_income">Income</string>
+    <string name="recurring_unit_week">Weeks</string>
+    <string name="recurring_unit_month">Months</string>
+    <string name="recurring_unit_year">Years</string>
+    <string name="recurring_freq_week_one">Every week on %1$s</string>
+    <string name="recurring_freq_week_other">Every %1$d weeks on %2$s</string>
+    <string name="recurring_freq_month_one">Every month on the %1$s</string>
+    <string name="recurring_freq_month_other">Every %1$d months on the %2$s</string>
+    <string name="recurring_freq_year_one">Every year on %1$s</string>
+    <string name="recurring_freq_year_other">Every %1$d years on %2$s</string>
+    <string name="recurring_next_date">Next: %1$s</string>
+    <string name="recurring_inactive">Not active</string>
+    <string name="recurring_due">Due</string>
+    <string name="recurring_due_on">Due on %1$s</string>
+    <string name="recurring_overdue_since">Overdue · %1$s</string>
+    <string name="recurring_after_previous">After the earlier one</string>
+    <string name="recurring_add">Add bill, subscription or income</string>
+    <string name="recurring_nothing_automatic">Nothing is logged automatically. Confirm each item when it is paid or received, or skip it.</string>
+    <string name="recurring_empty_title">Nothing recurring yet</string>
+    <string name="recurring_empty_message">Add your rent, bills, subscriptions or salary. Pik shows what is due, reminds you and keeps it out of what is safe to spend.</string>
+    <string name="recurring_total_month">Outgoing per month</string>
+    <string name="recurring_total_year">Outgoing per year</string>
+    <string name="recurring_total_hint">Bills, subscriptions and debt payments. Weekly amounts are counted as 52 weeks a year.</string>
+    <string name="recurring_confirm_amount">Amount</string>
+    <string name="recurring_confirm_amount_hint">Change it if this one is different</string>
+    <string name="recurring_confirm_expense">Confirm payment</string>
+    <string name="recurring_confirm_income">Confirm income</string>
+    <string name="recurring_skip">Skip this one</string>
+    <string name="recurring_skip_hint">Skipping moves on to the next date without adding a transaction.</string>
+    <string name="recurring_new_title">New recurring</string>
+    <string name="recurring_edit_title">Edit recurring</string>
+    <string name="recurring_not_found">This item does not exist any more.</string>
+    <string name="recurring_name">Name</string>
+    <string name="recurring_amount">Amount</string>
+    <string name="recurring_debt_owned">This payment (%1$s) belongs to the debt. To change the amount or the due day, edit the debt.</string>
+    <string name="recurring_start_date">Start date</string>
+    <string name="recurring_repeat">Repeat</string>
+    <string name="recurring_every">Every</string>
+    <string name="recurring_day_of_month">Day of the month</string>
+    <string name="recurring_day_of_month_hint">The day it happens each month (or each year).</string>
+    <string name="recurring_day_clamp_hint">In shorter months the last day of the month is used.</string>
+    <string name="recurring_ends">Ends</string>
+    <string name="recurring_ends_never">Never</string>
+    <string name="recurring_ends_on_date">On a date</string>
+    <string name="recurring_ends_after">After some times</string>
+    <string name="recurring_end_date">Last date</string>
+    <string name="recurring_end_before_start">The last date is before the start date.</string>
+    <string name="recurring_times">Number of times</string>
+    <string name="recurring_times_hint">In total, counting from the start date</string>
+    <string name="recurring_remind">Remind me the day before</string>
+    <string name="recurring_remind_hint">A notification the day before it is due</string>
+    <string name="recurring_remind_denied">Notifications are not allowed for Pik, so the reminder cannot arrive. You can allow them in Settings.</string>
+    <string name="recurring_delete_title">Delete this item?</string>
+    <string name="recurring_delete_message">It stops appearing in your due list. Transactions you already confirmed stay as they are.</string>
+    <string name="recurring_delete_hint">Deleting keeps the transactions you already confirmed.</string>
+    <string name="home_due_soon">Due soon</string>
+    <string name="home_due_overdue">Overdue</string>
+    <string name="home_due_more">And %1$d more</string>
+    <string name="safe_bills_set_aside">%1$s of bills and subscriptions still due this period is already set aside.</string>
+    <string name="safe_income_expected">Includes %1$s of income you expect later this period.</string>
+    <string name="debt_track_payment">Remind me and track this payment</string>
+    <string name="debt_track_payment_hint">Adds this instalment to your due list on the due day. Nothing is logged until you confirm it.</string>
+
+    <!-- Reminders -->
+    <string name="reminder_channel_name">Reminders</string>
+    <string name="reminder_channel_description">A reminder the day before a bill or payment is due</string>
+    <string name="reminder_title_tomorrow">Due tomorrow</string>
+    <string name="reminder_line">%1$s · %2$s</string>
+    <string name="reminder_overdue">%1$d overdue</string>
+    <string name="settings_reminders">Reminders</string>
+    <string name="settings_reminder_time">Reminder time</string>
+    <string name="settings_reminder_time_value">%1$d:00</string>
+    <string name="settings_reminder_time_hint">Pik reminds you once a day, the day before something is due. Android can delay it, so it may arrive a bit late.</string>
+    <string name="settings_reminder_time_dialog_hint">The hour of the day when the reminder should arrive.</string>
+    <string name="settings_notifications_off">Notifications are turned off for Pik, so reminders cannot arrive.</string>
+    <string name="settings_notifications_allow">Allow notifications</string>
+    <string name="settings_reminders_not_arriving">If reminders don\'t arrive</string>
+    <string name="settings_reminders_not_arriving_hint">Some phones, like OnePlus, stop apps in the background. Open the app settings, go to Battery and allow background activity for Pik.</string>
+
+    <!-- Insights, lock, CSV export, licences (milestone 6) -->
+    <string name="insights_title">Insights</string>
+    <string name="insights_empty_title">Nothing to show yet</string>
+    <string name="insights_empty_message">Add a few expenses and your income. Pik then shows how your months compare and where your money goes.</string>
+    <string name="insights_bars_title">Income and spending</string>
+    <string name="insights_legend_income">Income</string>
+    <string name="insights_legend_spending">Spending</string>
+    <string name="insights_legend_debt">Debt payments</string>
+    <string name="insights_bar_detail">%1$s: in %2$s, out %3$s</string>
+    <string name="insights_bar_detail_debt">%1$s: in %2$s, out %3$s (of which debt payments %4$s)</string>
+    <string name="insights_bars_hint">Tap a pair of bars to see its numbers. Transfers and balance adjustments are not counted.</string>
+    <string name="insights_bars_cd">Income and spending for the last %1$d periods. %2$s</string>
+    <string name="insights_bars_cd_item">%1$s: income %2$s, spending %3$s, of which debt payments %4$s.</string>
+    <string name="insights_where_title">Where it went</string>
+    <string name="insights_where_hint">Tap a row or a slice to see those transactions.</string>
+    <string name="insights_spent">Spent</string>
+    <string name="insights_other">Other</string>
+    <string name="insights_debt_payments">Debt payments</string>
+    <string name="insights_no_spending">No spending in this period.</string>
+    <string name="insights_donut_cd">Where your money went in %1$s. %2$s</string>
+    <string name="insights_donut_cd_item">%1$s: %2$s, %3$d percent.</string>
+    <string name="insights_donut_cd_empty">No spending in %1$s.</string>
+    <string name="insights_stat_spent">Spent this period</string>
+    <string name="insights_stat_vs_average">%1$s vs your average of %2$s</string>
+    <string name="insights_stat_no_average">Not enough history yet to compare</string>
+    <string name="insights_stat_kept">Kept</string>
+    <string name="insights_stat_kept_detail">Income minus spending</string>
+    <string name="insights_stat_debt">Debt paid</string>
+    <string name="insights_stat_debt_detail">Already counted in spending</string>
+    <string name="insights_stat_biggest">Biggest expense</string>
+    <string name="insights_stat_biggest_none">No expenses yet</string>
+    <string name="home_spending">Spending</string>
+    <string name="home_spending_hint">Built up so far this period</string>
+    <string name="home_spending_hint_empty">Nothing spent yet this period</string>
+    <string name="home_spending_cd">Spending so far: %1$s in %2$s. Opens Insights.</string>
+    <string name="home_insights_hint">Charts of your income and spending</string>
+    <string name="filter_all_categories">All categories</string>
+    <string name="filter_debt_payments">Debt payments</string>
+    <string name="filter_category_selected">Selected category</string>
+    <string name="activity_back_to_months">Show whole months</string>
+    <string name="settings_security">Security</string>
+    <string name="settings_lock">Lock with fingerprint</string>
+    <string name="settings_lock_hint">This hides Pik\'s screens. Your data file isn\'t encrypted. Pik asks again after a minute away, and your phone PIN works too.</string>
+    <string name="lock_enable_title">Turn on the lock</string>
+    <string name="lock_enable_subtitle">Confirm with your fingerprint or phone PIN</string>
+    <string name="lock_unlock_title">Unlock Pik</string>
+    <string name="lock_unlock">Unlock</string>
+    <string name="lock_locked_title">Pik is locked</string>
+    <string name="lock_locked_message">Use your fingerprint or phone PIN to see your money.</string>
+    <string name="csv_title">Export for a spreadsheet (CSV)</string>
+    <string name="csv_explanation">All your transactions in a file for Excel or Google Sheets. It can\'t restore your data: only the backup file above does that.</string>
+    <string name="csv_export">Export CSV</string>
+    <string name="csv_saved">CSV file saved</string>
+    <string name="csv_failed">Could not save the CSV file.</string>
+    <string name="about_data_local">Data stays on this phone</string>
+    <string name="about_data_local_hint">No account, no server, no internet access.</string>
+    <string name="about_licences">Licences</string>
+    <string name="licences_title">Licences</string>
+    <string name="licences_intro">Pik uses two open fonts. Their licence allows using and sharing them in apps.</string>
+    <string name="licences_outfit">Outfit</string>
+    <string name="licences_outfit_use">Headings and numbers</string>
+    <string name="licences_inter">Inter</string>
+    <string name="licences_inter_use">Body text</string>
+    <string name="licences_ofl_name">SIL Open Font License 1.1</string>
+    <string name="licences_show_text">Show the full licence</string>
+    <string name="licences_hide_text">Hide the full licence</string>
+    <string name="licences_ofl_note">The licence texts are in English, as published by the font authors.</string>
+
+    <!-- Automatic import: settings -->
+    <string name="settings_import">Automatic import</string>
+    <string name="import_service_label">Pik automatic import</string>
+    <string name="import_access_title">Notification access</string>
+    <string name="import_access_on">On</string>
+    <string name="import_access_off">Off</string>
+    <string name="import_access_turn_on">Turn on</string>
+    <string name="import_access_restricted_hint">On Android 13 and later, an app installed from a file may show \"Restricted setting\" here. If so, open Pik\'s app info, tap the ⋮ menu, choose \"Allow restricted settings\", and try again.</string>
+    <string name="import_open_app_info">Open Pik app info</string>
+    <string name="import_privacy">Pik reads only notifications from the apps you pick, only to find payments, and never sends them anywhere.</string>
+    <string name="import_apps_title">Apps to read</string>
+    <string name="import_apps_hint">Switch on the apps whose payment notifications Pik should look at. Known payment apps come first.</string>
+    <string name="import_apps_loading">Looking for apps…</string>
+    <string name="import_apps_none_known">No payment app found. Use \"Show all apps\" to pick one.</string>
+    <string name="import_apps_show_all">Show all apps</string>
+    <string name="import_apps_show_fewer">Show fewer apps</string>
+    <string name="import_apps_suggested">Payment app</string>
+    <string name="import_apps_account">Pik account for its payments</string>
+    <string name="inbox_settings_hint">Payments to check and add</string>
+
+    <!-- Automatic import: files -->
+    <string name="import_file_title">Import a file</string>
+    <string name="import_file_explanation">Read a CSV or Excel (.xlsx) export from your bank, Revolut or PayPal. Every row goes to the Inbox, where you confirm it.</string>
+    <string name="import_file_button">Import a file</string>
+    <string name="import_file_account_title">Which account is this file for?</string>
+    <string name="import_file_confirm">Import</string>
+    <string name="import_file_found">%1$d payments found in the file (%2$s format), %3$d rows skipped.</string>
+    <string name="import_file_done">%1$d new in the Inbox, %2$d already known.</string>
+    <string name="import_file_old_excel">This is an old Excel (.xls) file. Export it again as CSV or XLSX and try again.</string>
+    <string name="import_file_unreadable">Pik cannot read this file. Choose a CSV or XLSX export.</string>
+    <string name="import_file_no_rows">No payments found in this file.</string>
+    <string name="import_file_failed">Could not import the file.</string>
+    <string name="import_format_revolut">Revolut</string>
+    <string name="import_format_paypal">PayPal</string>
+    <string name="import_format_generic">bank</string>
+    <string name="import_source_relax">Relax Banking</string>
+    <string name="import_source_nexi">Nexi Pay</string>
+    <string name="import_source_revolut">Revolut</string>
+    <string name="import_source_paypal">PayPal</string>
+    <string name="import_source_other">Other app</string>
+    <string name="import_source_file">File</string>
+
+    <!-- Inbox -->
+    <string name="home_inbox_title">%1$d to review</string>
+    <string name="home_inbox_hint">Payments Pik found. Check them and add them.</string>
+    <string name="inbox_title">Inbox</string>
+    <string name="inbox_add_all">Add all with a category (%1$d)</string>
+    <string name="inbox_added_all">%1$d added</string>
+    <string name="inbox_empty_title">Nothing to review</string>
+    <string name="inbox_empty_message">When Pik finds a payment in a notification or a file, it appears here. You confirm each one before it counts.</string>
+    <string name="inbox_unknown_merchant">Unknown</string>
+    <string name="inbox_no_account">No account</string>
+    <string name="inbox_choose_category">Choose category</string>
+    <string name="inbox_action_add">Add</string>
+    <string name="inbox_action_edit">Edit</string>
+    <string name="inbox_action_dismiss">Dismiss</string>
+    <string name="inbox_already_title">Already in Pik (%1$d)</string>
+    <string name="inbox_already_hint">These look like payments you already entered. Restore one if it is a different payment.</string>
+    <string name="inbox_restore">Restore</string>
+    <string name="inbox_pick_category">Category</string>
+    <string name="inbox_pick_account">Which account?</string>
+</resources>
